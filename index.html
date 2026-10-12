@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0b0f19">
+  <meta name="description" content="ColdBend Pro: boru hattı sahada soğuk büküm geometri, cidar incelmesi, ovalleşme ve geri yaylanma hesap motoru.">
+  <meta property="og:title" content="ColdBend Pro — Soğuk Büküm Hesap Motoru">
+  <meta property="og:description" content="Boru hattı sahada soğuk büküm geometri, cidar incelmesi, ovalleşme ve geri yaylanma hesap motoru.">
+  <meta property="og:type" content="website">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230284c7' stroke-width='2.4'%3E%3Cpath d='M3 20h18M3 20c3-8 9-14 18-14'/%3E%3Ccircle cx='21' cy='6' r='2.5'/%3E%3Ccircle cx='3' cy='20' r='2.5'/%3E%3C/svg%3E">
   <title>Boru Hattı Soğuk Saha Büküm (Cold Field Bend) Mühendislik Hesap Motoru & QC İmalat Föyü</title>
   <link rel="stylesheet" href="style.css">
@@ -38,7 +42,7 @@
         </svg>
       </div>
       <div>
-        <h1 class="app-title">ColdBend Pro <span class="version-tag">v2.4 - ASME & BOTAŞ Compliant</span></h1>
+        <h1 class="app-title">ColdBend Pro <span class="version-tag">v1.0.0 - ASME Compliant</span></h1>
         <p class="app-subtitle">Boru Hattı Sahada Soğuk Bükümü (Cold Field Bend) Geometri, Cidar İncelmesi, Ovalleşme & Geri Yaylanma Hesap Motoru</p>
       </div>
     </div>
@@ -60,7 +64,8 @@
   </header>
 
   <!-- MAIN CONTAINER (LAYOUT GRID) -->
-  <main class="main-layout">
+  <a class="skip-link" href="#mainContent">İçeriğe atla</a>
+  <main class="main-layout" id="mainContent">
     
     <!-- LEFT SIDEBAR: INPUT PARAMETERS -->
     <aside class="sidebar-panel">
@@ -73,7 +78,7 @@
       <div class="form-group">
         <label for="selPreset" class="field-label">Hazır Proje Preseti (Hızlı Yükle)</label>
         <select id="selPreset" class="form-select">
-          <option value="botas_36">BOTAŞ Doğal Gaz İletim Hattı - 36" X70 (12.0m Boru)</option>
+          <option value="botas_36">Doğal Gaz İletim Hattı - 36" X70 (12.0m Boru)</option>
           <option value="asme_24">ASME B31.8 Ana Hat - 24" X65 (12.2m Boru)</option>
           <option value="asme_16">ASME B31.4 Ham Petrol - 16" X52 (12.0m Boru)</option>
           <option value="tanap_48">Büyük Çap Ağır Hizmet - 48" X70 (12.2m Boru)</option>
@@ -88,7 +93,7 @@
         <select id="selStandard" class="form-select">
           <option value="ASME_B31_8">ASME B31.8 (Md. 841.2.3 - Gaz Boru Hatları)</option>
           <option value="ASME_B31_4">ASME B31.4 (Md. 406.2.1 - Sıvı/Petrol Boru Hatları)</option>
-          <option value="BOTAS_SPEC">BOTAŞ / TANAP Boru Büküm Şartnamesi (Sıkı)</option>
+          <option value="BOTAS_SPEC">İşveren Boru Büküm Şartnamesi (Sıkı)</option>
           <option value="CUSTOM_SPEC">Özel / Kullanıcı Tanımlı Kriter</option>
         </select>
       </div>
@@ -250,8 +255,9 @@
             <option value="18">18 D (Küçük Çap)</option>
             <option value="21">21 D</option>
             <option value="24">24 D</option>
+            <option value="27">27 D</option>
             <option value="30">30 D (ASME Standart)</option>
-            <option value="40" selected>40 D (BOTAŞ Kriteri)</option>
+            <option value="40" selected>40 D (Sıkı Kriter)</option>
             <option value="50">50 D (Geniş Kavis)</option>
             <option value="custom">Özel Yarıçap...</option>
           </select>
@@ -266,6 +272,13 @@
       <div class="form-group" id="groupCustomRadius" style="display:none;">
         <label for="inpCustomRadius" class="field-label">Özel Yarıçap Çarpanı (k, R = k × D) [5 – 100 D]</label>
         <input type="number" id="inpCustomRadius" class="form-input" value="40" min="5" max="100" step="1">
+      </div>
+
+      <!-- Manual Pull Count Override -->
+      <div class="form-group">
+        <label for="inpManualPulls" class="field-label">Paso Adedi (manuel)</label>
+        <input type="number" id="inpManualPulls" class="form-input" placeholder="Otomatik" min="2" max="60" step="1">
+        <span class="field-helper">Boş bırakılırsa otomatik hesaplanır. Manuel adet açı limitini aşarsa Paso kontrolü RET verir.</span>
       </div>
 
       <!-- Straight Tangent Lengths (Uç Düzlükleri) -->
@@ -291,7 +304,7 @@
           <select id="selDesignFactor" class="form-select">
             <option value="0.80">0.80 (Class 1, Div. 1 / ASME 2025)</option>
             <option value="0.72" selected>0.72 (Class 1, Div. 2 / ASME Standart)</option>
-            <option value="0.60">0.60 (Class 2 / BOTAŞ)</option>
+            <option value="0.60">0.60 (Class 2)</option>
             <option value="0.50">0.50 (Class 3 / Yerleşim)</option>
             <option value="0.40">0.40 (Class 4 / Yoğun Nüfus)</option>
           </select>
@@ -326,7 +339,7 @@
 
       <div class="form-group">
         <label for="inpProjectName" class="field-label">Proje / Hat Tanımı</label>
-        <input type="text" id="inpProjectName" class="form-input" value="BOTAŞ Doğal Gaz İletim Hattı - Faz 2" maxlength="80" autocomplete="off" spellcheck="false">
+        <input type="text" id="inpProjectName" class="form-input" value="Doğal Gaz İletim Hattı - Faz 2" maxlength="80" autocomplete="off" spellcheck="false">
       </div>
 
       <div class="form-row">
@@ -381,7 +394,7 @@
             <span class="status-indicator pass" id="kpiBadgeRmin">UYGUN</span>
           </div>
           <div class="kpi-value" id="kpiValRmin">36.58 m <span class="kpi-sub">(40 D)</span></div>
-          <div class="kpi-desc" id="kpiDescRmin">ASME ve BOTAŞ limitini karşılıyor.</div>
+          <div class="kpi-desc" id="kpiDescRmin">ASME ve işveren limitini karşılıyor.</div>
         </div>
 
         <div class="kpi-card" id="cardMaxAngle">
@@ -424,12 +437,12 @@
       <!-- VISUALIZATION TABS (2D DYNAMIC SKETCH & 3D INTERACTIVE SKETCH) -->
       <div class="visualization-container">
         <div class="vis-header-tabs">
-          <div class="tabs-group">
-            <button class="vis-tab active" id="tab2D" data-tab="view2D">
+          <div class="tabs-group" role="tablist" aria-label="Görselleştirme sekmeleri">
+            <button class="vis-tab active" id="tab2D" data-tab="view2D" role="tab" aria-selected="true" aria-controls="view2D">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
               2D Dinamik Mühendislik Çizimi (Sketch)
             </button>
-            <button class="vis-tab" id="tab3D" data-tab="view3D">
+            <button class="vis-tab" id="tab3D" data-tab="view3D" role="tab" aria-selected="false" aria-controls="view3D">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
               3D İnteraktif WebGL Boru Modeli (3D Sketch)
             </button>
@@ -508,6 +521,9 @@
               <button class="btn-3d-control" id="btn3dResetCam" title="Kamera Açısını Sıfırla">Merkeze Al</button>
               <button class="btn-3d-control" id="btn3dToggleMandrel" title="İç Mandreli Göster/Gizle" aria-pressed="true">Mandrel: Açık</button>
               <button class="btn-3d-control" id="btn3dToggleSeam" title="Kaynak Dikişini Vurgula" aria-pressed="true">Kaynak Dikişi: Açık</button>
+              <button class="btn-3d-control" id="btn3dPlay" title="Bükümü paso paso oynat" aria-pressed="false">▶ Bükümü Oynat</button>
+              <button class="btn-3d-control" id="btn3dStep" title="Bir paso ilerle">Adım İleri</button>
+              <span class="anim-progress" id="animProgress">Hazır</span>
             </div>
           </div>
         </div>
@@ -517,26 +533,28 @@
       <div class="details-accordion-card">
         <div class="card-header-flex">
           <div>
-            <h3 class="card-section-title">Hidrolik Büküm Adımları (Paso / Pull Tablosu) & Saha Operatör Kartı</h3>
-            <p class="card-section-sub">Boru boyu, büküm yayı ve adım sayısına göre hidrolik pres baskı noktaları</p>
+            <h2 class="card-section-title">Hidrolik Büküm Adımları (Paso / Pull Tablosu) & Saha Operatör Kartı</h3>            <p class="card-section-sub">Boru boyu, büküm yayı ve adım sayısına göre hidrolik pres baskı noktaları</p>
           </div>
-          <div class="pull-summary-pill" id="pullSummaryPill">
-            Toplam 14 Adım (Paso) • ~0.77° / Adım
+          <div class="card-header-right">
+            <div class="pull-summary-pill" id="pullSummaryPill">
+              Toplam 14 Adım (Paso) • ~0.77° / Adım
+            </div>
+            <button class="btn btn-sm btn-outline" id="btnTogglePulls" aria-expanded="true" aria-controls="pullsWrap">Gizle</button>
           </div>
         </div>
 
-        <div class="table-responsive">
+        <div class="table-responsive" id="pullsWrap">
           <table class="table-pulls" id="tablePulls">
             <thead>
               <tr>
-                <th>Paso #</th>
-                <th>Boru Başı Mesafesi (m)</th>
-                <th>Kalıp İlerlemesi (mm)</th>
-                <th>Paso Açısı (°/Paso)</th>
-                <th>Kümülatif Makine Açısı (°)</th>
-                <th>Kümülatif Net Açı (°)</th>
-                <th>Pres / Mandrel Durumu</th>
-                <th>Standart Limiti</th>
+                <th scope="col">Paso #</th>
+                <th scope="col">Boru Başı Mesafesi (m)</th>
+                <th scope="col">Kalıp İlerlemesi (mm)</th>
+                <th scope="col">Paso Açısı (°/Paso)</th>
+                <th scope="col">Kümülatif Makine Açısı (°)</th>
+                <th scope="col">Kümülatif Net Açı (°)</th>
+                <th scope="col">Pres / Mandrel Durumu</th>
+                <th scope="col">Standart Limiti</th>
               </tr>
             </thead>
             <tbody id="tbodyPulls">
@@ -546,12 +564,12 @@
         </div>
       </div>
 
-      <!-- ASME B31.8 / B31.4 & BOTAŞ DETAILED VERIFICATION MATRIX -->
+      <!-- ASME B31.8 / B31.4 DETAILED VERIFICATION MATRIX -->
       <div class="verification-matrix-grid">
         <!-- Safety Card: Wall Thinning -->
         <div class="matrix-card">
           <div class="matrix-card-header">
-            <h4>Cidar İncelmesi ve Barlow Basınç Güvenliği</h4>
+            <h3>Cidar İncelmesi ve Barlow Basınç Güvenliği</h3>
             <span class="badge-pill pass" id="badgeThinningMatrix">PASS</span>
           </div>
           <ul class="matrix-list">
@@ -581,7 +599,7 @@
         <!-- Safety Card: Ovality & Mandrel -->
         <div class="matrix-card">
           <div class="matrix-card-header">
-            <h4>Ovalleşme & Akıllı Pig (ILI) Geçiş Şartı</h4>
+            <h3>Ovalleşme & Akıllı Pig (ILI) Geçiş Şartı</h3>
             <span class="badge-pill pass" id="badgeOvalityMatrix">PASS</span>
           </div>
           <ul class="matrix-list">
@@ -591,7 +609,7 @@
             </li>
             <li>
               <span>İzin Verilen Azami Ovalite:</span>
-              <strong>%2.50 (ASME / BOTAŞ)</strong>
+              <strong>%2.50 (ASME / İşveren)</strong>
             </li>
             <li>
               <span>İç Çap Değişimi (ΔID):</span>
@@ -611,7 +629,7 @@
         <!-- Safety Card: Weld Seam & Springback -->
         <div class="matrix-card">
           <div class="matrix-card-header">
-            <h4>Kaynak Dikişi Konumu & Geri Yaylanma</h4>
+            <h3>Kaynak Dikişi Konumu & Geri Yaylanma</h3>
             <span class="badge-pill pass" id="badgeSeamMatrix">UYGUN</span>
           </div>
           <ul class="matrix-list">
@@ -641,7 +659,7 @@
         <!-- Safety Card: ASME B31.8 Md. 841.2.3 Ripple & Method 2 Rate -->
         <div class="matrix-card">
           <div class="matrix-card-header">
-            <h4>ASME B31.8 Md. 841.2.3 Dalgalanma (Ripple) & Eğrilik Hızı</h4>
+            <h3>ASME B31.8 Md. 841.2.3 Dalgalanma (Ripple) & Eğrilik Hızı</h3>
             <span class="badge-pill pass" id="badgeRippleMatrix">PASS</span>
           </div>
           <ul class="matrix-list">
@@ -666,6 +684,12 @@
               <strong id="matValRippleLimit">≤ 9.14 mm (%1.0 D)</strong>
             </li>
           </ul>
+          <div class="method2-sketch">
+            <svg id="svgMethod2" viewBox="0 0 300 168" role="img" aria-label="Yöntem 2 eğrilik şeması">
+              <g id="svgMethod2Group"></g>
+            </svg>
+            <div class="method2-caption">Şematik (ölçeksiz): 1D boylu yaydaki sapma = °/D eğrilik hızı</div>
+          </div>
         </div>
       </div>
 
@@ -678,7 +702,7 @@
       <div class="print-logo-area">
         <div class="print-title-main">BORU HATTI SAHADA SOĞUK BÜKÜM İMALAT VE QC KONTROL KARTI</div>
         <div class="print-subtitle">COLD FIELD BEND FABRICATION & QUALITY CONTROL REPORT</div>
-        <div class="print-standards">ASME B31.8-2025 Md. 841.2.3 | ASME B31.4 Md. 406.2.1 | BOTAŞ TEKNİK ŞARTNAMESİ</div>
+        <div class="print-standards">ASME B31.8-2025 Md. 841.2.3 | ASME B31.4 Md. 406.2.1 | İŞVEREN TEKNİK ŞARTNAMESİ</div>
       </div>
       <div class="print-meta-box">
         <div><strong>Rapor / Föy No:</strong> <span id="prtDocNo">CFB-2026-0042</span></div>
@@ -802,15 +826,15 @@
     <table class="print-table" id="prtPullsTable">
       <thead>
         <tr>
-          <th colspan="6" class="print-th-section">4. HİDROLİK BÜKÜM ADIMLARI (PASO / PULL TABLOSU)</th>
+          <th colspan="6" class="print-th-section" id="prtPullsHead">4. HİDROLİK BÜKÜM ADIMLARI (PASO / PULL TABLOSU)</th>
         </tr>
         <tr>
-          <th>Paso #</th>
-          <th>Boru Başı Mesafesi (m)</th>
-          <th>İlerleme (mm)</th>
-          <th>Paso Açısı (°)</th>
-          <th>Küm. Makine (°)</th>
-          <th>Küm. Net (°)</th>
+          <th scope="col">Paso #</th>
+          <th scope="col">Boru Başı Mesafesi (m)</th>
+          <th scope="col">İlerleme (mm)</th>
+          <th scope="col">Paso Açısı (°)</th>
+          <th scope="col">Küm. Makine (°)</th>
+          <th scope="col">Küm. Net (°)</th>
         </tr>
       </thead>
       <tbody id="prtPullsBody">

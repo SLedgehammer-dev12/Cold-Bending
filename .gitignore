@@ -3,3 +3,16 @@ ASME B31.8 2025.pdf
 
 # macOS
 .DS_Store
+
+# Node / Electron
+node_modules/
+npm-debug.log*
+
+# electron-builder çıktısı (kurulabilirler CI'da üretilir)
+dist/
+*.dmg
+*.exe
+*.zip
+
+# Electron önbellek
+app-update.yml

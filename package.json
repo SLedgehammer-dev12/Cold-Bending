@@ -1,0 +1,120 @@
+{
+  "name": "coldbend-pro",
+  "productName": "ColdBend Pro",
+  "version": "1.0.0",
+  "description": "Boru Hattı Sahada Soğuk Büküm (Cold Field Bend) Mühendislik Hesap Motoru & QC İmalat Föyü — ASME B31.8 / B31.4 uyumlu",
+  "author": "ColdBend Pro",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win",
+    "dist:all": "electron-builder --mac --win",
+    "check": "node --check app.js && node --check electron/main.js && node --check electron/preload.js",
+    "release": "npm run dist:all"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.coldbend.pro",
+    "productName": "ColdBend Pro",
+    "copyright": "Copyright © 2026 ColdBend Pro",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "index.html",
+      "app.js",
+      "style.css",
+      "lib/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "version": "1.0.0"
+    },
+    "mac": {
+      "category": "public.app-category.engineering",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "build/icon.icns",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "dmg": {
+      "title": "ColdBend Pro v1.0.0",
+      "icon": "build/icon.icns",
+      "background": "build/dmg-background.png",
+      "window": {
+        "width": 540,
+        "height": 380
+      },
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "publisherName": "ColdBend Pro"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ColdBend Pro v1.0.0",
+      "artifactName": "ColdBend-Pro-Setup-1.0.0.${ext}"
+    },
+    "portable": {
+      "artifactName": "ColdBend-Pro-Portable-1.0.0.${ext}"
+    },
+    "linux": {
+      "category": "Engineering",
+      "target": ["AppImage"]
+    }
+  }
+}
