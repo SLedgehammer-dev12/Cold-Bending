@@ -2,6 +2,20 @@
 
 Tüm önemli değişiklikler bu dosyada izlenir. Sürüm biçimi `MAJOR.MINOR.PATCH`.
 
+## [2.5.0] — 2026-10-12
+
+Yeni özellik: Update Manager. Sürüm birliği v2.5.0.
+
+### Eklenen
+- Update Manager (`APP_VERSION`, `checkForUpdates`, `renderUpdateModal`): açılışta sessiz
+  günlük GitHub Releases denetimi + başlıkta durum rozeti + manuel denetim butonu +
+  platforma göre indirme öneren modal. Çevrimdışında sessiz geçiş.
+- Başlık rozeti artık `APP_VERSION` sabitinden üretilir (`syncVersionBadge`).
+
+### Korunan (regresyon yok)
+- Çekirdek formüller ve `updateUI()` zinciri, `prt*` / `matVal*` / `kpi*` bağlantıları,
+  TR arayüz, tema, A4 baskı.
+
 ## [2.4.0] — 2026-10-12
 
 Arayüz rozeti, paket ve dosya adları v2.4.0'da birleştirildi. Dağıtım 4 gruba ayrıldı.

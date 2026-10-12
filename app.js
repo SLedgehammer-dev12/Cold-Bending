@@ -3,6 +3,13 @@
  * Compliant with ASME B31.8 (Sec. 841.2.3), ASME B31.4 (Sec. 406.2.1) & Employer Standards
  */
 
+// Single source of truth for the app version
+// (must match UI badge, package.json, electron shell, release tag).
+const APP_VERSION = '2.5.0';
+const UPDATE_API_URL = 'https://api.github.com/repos/SLedgehammer-dev12/Cold-Bending/releases/latest';
+const UPDATE_CACHE_KEY = 'coldbend_update_cache';
+const UPDATE_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // silent auto-check at most once a day
+
 // Global state and calculation parameters
 const state = {
   standard: 'BOTAS_SPEC',
@@ -174,6 +181,15 @@ const dom = {
   animProgress: document.getElementById('animProgress'),
   legend3DValueExt: document.getElementById('legend3DValueExt'),
   legend3DValueInt: document.getElementById('legend3DValueInt'),
+
+  // Update Manager
+  btnCheckUpdates: document.getElementById('btnCheckUpdates'),
+  updatePill: document.getElementById('updatePill'),
+  updateModal: document.getElementById('updateModal'),
+  updateStatus: document.getElementById('updateStatus'),
+  updateNotes: document.getElementById('updateNotes'),
+  updateAssets: document.getElementById('updateAssets'),
+  btnCloseUpdateModal: document.getElementById('btnCloseUpdateModal'),
 
   // Printable Card Dynamic References
   prtDocNo: document.getElementById('prtDocNo'),
@@ -2708,6 +2724,191 @@ function setupEventListeners() {
     sidebarEl.addEventListener('input', markCustomPreset);
     sidebarEl.addEventListener('change', markCustomPreset);
   }
+
+  // Update Manager wiring
+  if (dom.btnCheckUpdates) {
+    dom.btnCheckUpdates.addEventListener('click', () => checkForUpdates(true));
+  }
+  if (dom.btnCloseUpdateModal) {
+    dom.btnCloseUpdateModal.addEventListener('click', closeUpdateModal);
+  }
+  if (dom.updateModal) {
+    dom.updateModal.addEventListener('click', (e) => {
+      if (e.target === dom.updateModal) closeUpdateModal();
+    });
+  }
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && dom.updateModal && !dom.updateModal.hidden) closeUpdateModal();
+  });
+}
+
+/* ==========================================================================
+   Update Manager: GitHub Releases check + guided download.
+   Read-only w.r.t. the calculation engine; offline failures stay silent
+   for auto-checks and show an explanatory modal for manual checks.
+   ========================================================================== */
+const updateMgr = { checking: false, latest: null };
+
+function syncVersionBadge() {
+  const el = document.querySelector('.version-tag');
+  if (el) el.textContent = `v${APP_VERSION} - ASME Compliant`;
+}
+
+function parseSemver(tag) {
+  const m = String(tag || '').trim().match(/^v?(\d+)\.(\d+)\.(\d+)/);
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+}
+
+function isNewerTag(latestTag, currentTag) {
+  const l = parseSemver(latestTag);
+  const c = parseSemver(currentTag);
+  if (!l || !c) return false;
+  for (let i = 0; i < 3; i++) {
+    if (l[i] !== c[i]) return l[i] > c[i];
+  }
+  return false;
+}
+
+function readUpdateCache() {
+  try {
+    const raw = localStorage.getItem(UPDATE_CACHE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data || typeof data.ts !== 'number' || !data.release) return null;
+    return data;
+  } catch (err) {
+    return null;
+  }
+}
+
+function writeUpdateCache(release) {
+  try {
+    localStorage.setItem(UPDATE_CACHE_KEY, JSON.stringify({ ts: Date.now(), release }));
+  } catch (err) { /* private mode etc. — cache is best-effort */ }
+}
+
+function setUpdatePill(mode, text) {
+  if (!dom.updatePill) return;
+  dom.updatePill.textContent = text;
+  dom.updatePill.dataset.state = mode; // idle | checking | current | update | error
+  if (dom.btnCheckUpdates) dom.btnCheckUpdates.dataset.updateState = mode;
+}
+
+function openUpdateModal() {
+  if (dom.updateModal) dom.updateModal.hidden = false;
+}
+
+function closeUpdateModal() {
+  if (dom.updateModal) dom.updateModal.hidden = true;
+}
+
+function pickUpdateAssets(release) {
+  const assets = (release && release.assets) || [];
+  const find = (re) => assets.find((a) => re.test(a.name || ''));
+  const plat = String((typeof navigator !== 'undefined' && navigator.platform) || '').toLowerCase();
+  const isMac = plat.includes('mac');
+  const isWin = plat.includes('win');
+  const picked = [];
+  const push = (asset, label, recommended) => {
+    if (asset && asset.browser_download_url) {
+      picked.push({ label: label + (recommended ? ' (Önerilen)' : ''), url: asset.browser_download_url });
+    }
+  };
+  if (isMac) {
+    push(find(/\.dmg$/i), 'macOS Masaüstü (.dmg)', true);
+  } else if (isWin) {
+    push(find(/portable.*\.exe$/i), 'Windows Taşınabilir (.exe)', true);
+    push(find(/setup.*\.exe$/i), 'Windows Kurulumlu (.exe)', false);
+  }
+  push(find(/web.*\.zip$/i), 'Tarayıcı Sürümü (.zip)', !isMac && !isWin);
+  return picked;
+}
+
+function renderUpdateModal(release, opts) {
+  const options = opts || {};
+  if (!dom.updateModal) return;
+  if (dom.updateAssets) dom.updateAssets.textContent = '';
+  if (dom.updateNotes) dom.updateNotes.textContent = '';
+  if (options.error || !release) {
+    if (dom.updateStatus) dom.updateStatus.textContent =
+      'Sürüm bilgisi alınamadı. İnternet bağlantınızı kontrol edip tekrar deneyin ' +
+      '(saha/offline kullanımda denetim atlanır).';
+    openUpdateModal();
+    return;
+  }
+  const newer = isNewerTag(release.tag_name, APP_VERSION);
+  if (dom.updateStatus) {
+    dom.updateStatus.textContent = newer
+      ? `Yeni sürüm mevcut: ${release.tag_name} (sizde v${APP_VERSION}).`
+      : `Programınız güncel (v${APP_VERSION}). Son release: ${release.tag_name}.`;
+  }
+  if (dom.updateNotes && release.body) {
+    dom.updateNotes.textContent = String(release.body).slice(0, 2000);
+  }
+  if (dom.updateAssets) {
+    const addLink = (label, url, primary) => {
+      const a = document.createElement('a');
+      a.textContent = label;
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.className = 'btn ' + (primary ? 'btn-primary' : 'btn-outline');
+      dom.updateAssets.appendChild(a);
+    };
+    const picked = pickUpdateAssets(release);
+    picked.forEach((p, i) => addLink('⬇ ' + p.label, p.url, i === 0 && newer));
+    addLink('Tüm dosyalar (GitHub Release)', release.html_url || UPDATE_API_URL, picked.length === 0 && newer);
+  }
+  openUpdateModal();
+}
+
+function paintFromRelease(release, showModal) {
+  const newer = isNewerTag(release.tag_name, APP_VERSION);
+  setUpdatePill(newer ? 'update' : 'current',
+    newer ? `Yeni sürüm: ${release.tag_name}` : `v${APP_VERSION} • Güncel`);
+  if (showModal) renderUpdateModal(release, {});
+}
+
+async function checkForUpdates(manual) {
+  if (updateMgr.checking) return;
+  if (!manual) {
+    const cached = readUpdateCache();
+    if (cached && (Date.now() - cached.ts) < UPDATE_CACHE_TTL_MS && cached.release) {
+      updateMgr.latest = cached.release;
+      paintFromRelease(cached.release, false);
+      return;
+    }
+  }
+  if (typeof fetch === 'undefined') {
+    if (manual) renderUpdateModal(null, { error: true });
+    return;
+  }
+  updateMgr.checking = true;
+  if (manual) setUpdatePill('checking', 'Denetleniyor…');
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 12000);
+    const res = await fetch(UPDATE_API_URL, {
+      headers: { Accept: 'application/vnd.github+json' },
+      signal: ctrl.signal
+    });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const release = await res.json();
+    if (!release || !release.tag_name) throw new Error('bad payload');
+    writeUpdateCache(release);
+    updateMgr.latest = release;
+    paintFromRelease(release, manual);
+  } catch (err) {
+    if (manual) {
+      setUpdatePill('error', 'Denetim başarısız');
+      renderUpdateModal(null, { error: true });
+    } else {
+      setUpdatePill('idle', 'v' + APP_VERSION);
+    }
+  } finally {
+    updateMgr.checking = false;
+  }
 }
 
 // Initial Boot
@@ -2717,6 +2918,9 @@ window.addEventListener('DOMContentLoaded', () => {
   applyTheme(state.theme);
   syncRadiusOptions();
   updateUI();
+  syncVersionBadge();
+  setUpdatePill('idle', 'v' + APP_VERSION);
+  checkForUpdates(false); // silent daily auto-check; never blocks boot
 });
 
 // Ctrl+P bypasses the print button: refresh the QC card with live values.

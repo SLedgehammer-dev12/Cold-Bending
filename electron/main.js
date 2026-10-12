@@ -1,5 +1,5 @@
 /**
- * ColdBend Pro v2.4.0 — Electron Main Process
+ * ColdBend Pro v2.5.0 — Electron Main Process
  * Tarayıcıda çalışan mevcut web uygulamasını (index.html + app.js)
  * macOS (.dmg) ve Windows (.exe) masaüstü uygulaması olarak paketler.
  * Mevcut hesap motoruna dokunmaz; sadece BrowserWindow kabuğudur.

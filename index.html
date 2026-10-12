@@ -42,12 +42,16 @@
         </svg>
       </div>
       <div>
-        <h1 class="app-title">ColdBend Pro <span class="version-tag">v2.4.0 - ASME Compliant</span></h1>
+        <h1 class="app-title">ColdBend Pro <span class="version-tag">v2.5.0 - ASME Compliant</span></h1>
         <p class="app-subtitle">Boru Hattı Sahada Soğuk Bükümü (Cold Field Bend) Geometri, Cidar İncelmesi, Ovalleşme & Geri Yaylanma Hesap Motoru</p>
       </div>
     </div>
     <div class="header-right">
       <div class="standard-pill" id="standardDisplayBadge">ASME B31.8 (Md. 841.2.3)</div>
+      <button class="btn btn-outline" id="btnCheckUpdates" title="Yeni program sürümünü denetle">
+        <span aria-hidden="true">⟳</span>
+        <span id="updatePill" data-state="idle">v2.5.0</span>
+      </button>
       <button class="btn btn-outline" id="btnToggleTheme" title="Açık / Koyu Tema Değiştir">
         <span id="themeIcon">☀️</span>
         <span id="themeLabel">Açık Tema</span>
@@ -865,6 +869,19 @@
         <div class="sig-title">İŞVEREN / ÜÇÜNCÜ TARAF (TPI)</div>
         <div class="sig-name">Ad Soyad: ................................</div>
         <div class="sig-date">Tarih / İmza: .........................</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- UPDATE MANAGER MODAL -->
+  <div class="modal-backdrop" id="updateModal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="updateModalTitle">
+      <h2 id="updateModalTitle">Program Güncellemeleri</h2>
+      <p id="updateStatus" class="update-status">Sürüm denetleniyor…</p>
+      <pre id="updateNotes" class="update-notes"></pre>
+      <div id="updateAssets" class="update-assets"></div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" id="btnCloseUpdateModal">Kapat</button>
       </div>
     </div>
   </div>
