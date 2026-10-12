@@ -17,14 +17,18 @@
   ve `updateUI()` → pulls → imalat kartı → 2D → 3D zinciri değişmemiştir.
 - Dağıtım 4 gruba ayrıldı (aşağıdaki tablo).
 
-## İndirilenler
+## İndirilenler (5 dosya)
 
 | # | Kullanım | Dosya | Açıklama |
 |---|---|---|---|
 | 1 | **Browser** (macOS + Windows) | `ColdBend-Pro-Web-v2.4.0.zip` | Zip'i açıp `index.html` dosyasını çift tıklayın — tarayıcıda çalışır, sunucu/internet gerekmez |
-| 2 | **macOS Desktop** (Intel + Apple Silicon) | `ColdBend Pro-2.4.0.dmg` | Sürükle-bırak kurulum (Applications) |
-| 3 | **Windows Taşınabilir** (10/11 x64) | `ColdBend-Pro-Portable-2.4.0.exe` | Kurulumsuz — çift tıklayın, doğrudan çalışır |
-| 4 | **Windows Kurulumlu** (10/11 x64) | `ColdBend-Pro-Setup-2.4.0.exe` | NSIS sihirbazı; Masaüstü + Başlat kısayolu oluşturur |
+| 2 | **macOS Desktop** (Intel) | `ColdBend Pro-2.4.0.dmg` | Sürükle-bırak kurulum (Applications) |
+| 3 | **macOS Desktop** (Apple Silicon) | `ColdBend Pro-2.4.0-arm64.dmg` | Sürükle-bırak kurulum (Applications) |
+| 4 | **Windows Taşınabilir** (10/11 x64) | `ColdBend-Pro-Portable-2.4.0.exe` | Kurulumsuz — çift tıklayın, doğrudan çalışır |
+| 5 | **Windows Kurulumlu** (10/11 x64) | `ColdBend-Pro-Setup-2.4.0.exe` | NSIS sihirbazı; Masaüstü + Başlat kısayolu oluşturur |
+
+> Not: `.blockmap` / `latest*.yml` (otomatik güncelleyici artıkları) ve yinelenen
+> arşivler temizlenmiştir; sonraki sürümlerde dosya adları `ColdBend-Pro-` çizgi düzenindedir.
 
 ## Kurulum / Çalıştırma
 

@@ -73,10 +73,9 @@ jobs:
       - name: Hesap motoru sözdizimi kontrolü
         run: npm run check
 
-      - name: macOS paketini derle (.dmg + .zip)
+      - name: macOS paketini derle (.dmg)
         run: npm run dist:mac
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
       - name: Artifact yükle (mac)
@@ -109,8 +108,6 @@ jobs:
 
       - name: Windows paketini derle (.exe)
         run: npm run dist:win
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Artifact yükle (win)
         uses: actions/upload-artifact@v4
@@ -155,8 +152,8 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            artifacts/web/*
-            artifacts/mac/*
-            artifacts/win/*
+            artifacts/web/*.zip
+            artifacts/mac/*.dmg
+            artifacts/win/*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
