@@ -56,16 +56,11 @@
           ]
         }
       ],
-      "icon": "build/icon.icns",
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false,
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist"
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
     },
     "dmg": {
       "title": "ColdBend Pro v1.0.0",
-      "icon": "build/icon.icns",
-      "background": "build/dmg-background.png",
       "window": {
         "width": 540,
         "height": 380
@@ -98,7 +93,6 @@
           ]
         }
       ],
-      "icon": "build/icon.ico",
       "publisherName": "ColdBend Pro"
     },
     "nsis": {

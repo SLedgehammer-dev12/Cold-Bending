@@ -36,7 +36,7 @@ jobs:
           cache: npm
 
       - name: Bağımlılıkları kur
-        run: npm ci || npm install
+        run: npm ci --no-audit --no-fund
 
       - name: Hesap motoru sözdizimi kontrolü
         run: npm run check
@@ -70,7 +70,7 @@ jobs:
           cache: npm
 
       - name: Bağımlılıkları kur
-        run: npm ci || npm install
+        run: npm ci --no-audit --no-fund
 
       - name: Hesap motoru sözdizimi kontrolü
         run: npm run check
