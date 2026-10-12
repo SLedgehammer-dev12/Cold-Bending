@@ -42,7 +42,7 @@
         </svg>
       </div>
       <div>
-        <h1 class="app-title">ColdBend Pro <span class="version-tag">v1.0.0 - ASME Compliant</span></h1>
+        <h1 class="app-title">ColdBend Pro <span class="version-tag">v2.4.0 - ASME Compliant</span></h1>
         <p class="app-subtitle">Boru Hattı Sahada Soğuk Bükümü (Cold Field Bend) Geometri, Cidar İncelmesi, Ovalleşme & Geri Yaylanma Hesap Motoru</p>
       </div>
     </div>
@@ -515,6 +515,14 @@
               <span>🖱️ Sol Tık + Sürükle: 360° Döndür</span>
               <span>🔄 Tekerlek: Yakınlaştır / Uzaklaştır</span>
               <span>🖱️ Sağ Tık + Sürükle: Kaydır</span>
+            </div>
+            <!-- 3D Fiber Stress Gradient Legend (intrados/extrados, σ=E·y/R elastic theory) -->
+            <div class="legend-3d-overlay" id="legend3D">
+              <div class="legend-3d-title">Fiber Gerilme Gradyanı <span class="legend-3d-theory">(elastik teori)</span></div>
+              <div class="legend-3d-bar" aria-hidden="true"></div>
+              <div class="legend-item"><span class="legend-color tension-color"></span> Ekstrados (çekme) <strong id="legend3DValueExt">—</strong></div>
+              <div class="legend-item"><span class="legend-color neutral-color"></span> Nötr eksen <strong>0</strong></div>
+              <div class="legend-item"><span class="legend-color compression-color"></span> İntrados (basınç) <strong id="legend3DValueInt">—</strong></div>
             </div>
             <!-- 3D View Controls -->
             <div class="controls-3d-overlay">

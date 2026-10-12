@@ -1,7 +1,7 @@
 {
   "name": "coldbend-pro",
   "productName": "ColdBend Pro",
-  "version": "1.0.0",
+  "version": "2.4.0",
   "description": "Boru Hattı Sahada Soğuk Büküm (Cold Field Bend) Mühendislik Hesap Motoru & QC İmalat Föyü — ASME B31.8 / B31.4 uyumlu",
   "author": "ColdBend Pro",
   "license": "UNLICENSED",
@@ -36,7 +36,7 @@
       "package.json"
     ],
     "extraMetadata": {
-      "version": "1.0.0"
+      "version": "2.4.0"
     },
     "mac": {
       "category": "public.app-category.engineering",
@@ -60,7 +60,7 @@
       "gatekeeperAssess": false
     },
     "dmg": {
-      "title": "ColdBend Pro v1.0.0",
+      "title": "ColdBend Pro v2.4.0",
       "window": {
         "width": 540,
         "height": 380
@@ -100,11 +100,11 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "ColdBend Pro v1.0.0",
-      "artifactName": "ColdBend-Pro-Setup-1.0.0.${ext}"
+      "shortcutName": "ColdBend Pro v2.4.0",
+      "artifactName": "ColdBend-Pro-Setup-2.4.0.${ext}"
     },
     "portable": {
-      "artifactName": "ColdBend-Pro-Portable-1.0.0.${ext}"
+      "artifactName": "ColdBend-Pro-Portable-2.4.0.${ext}"
     },
     "linux": {
       "category": "Engineering",

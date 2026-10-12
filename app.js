@@ -1,6 +1,6 @@
 /**
  * ColdBend Pro - Pipeline Cold Field Bend Engineering Engine
- * Compliant with ASME B31.8 (Sec. 841.2.3), ASME B31.4 (Sec. 406.2.1) & BOTAŞ Standards
+ * Compliant with ASME B31.8 (Sec. 841.2.3), ASME B31.4 (Sec. 406.2.1) & Employer Standards
  */
 
 // Global state and calculation parameters
@@ -18,7 +18,7 @@ const state = {
   seamType: 'SAWH',      // SAWH, SAWL, SMLS
   seamAngle: 0,          // Angle from neutral axis (-90 to +90 deg)
   targetAngle: 10.0,     // Route deflection target angle in degrees
-  radiusMultiplier: 40,  // Bend radius multiplier (R = k * D)
+  manualPulls: null,      // Manual pull count override (2-60); null = automatic  radiusMultiplier: 40,  // Bend radius multiplier (R = k * D)
   designPressure: 75.0,  // Bar
   designFactor: 0.72,    // Class 1 / ASME
   useMandrel: true,      // Internal hydraulic mandrel active
@@ -28,12 +28,12 @@ const state = {
   seamVisible3D: true,
   
   // Theme & New Features
-  theme: localStorage.getItem('coldbend_theme') || 'dark',
+  theme: localStorage.getItem('coldbend_theme') || ((typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark'),
   bendType: 'overbend',  // overbend, sagbend, sidebend_right, sidebend_left, compound
   clockPos: '3',         // 3, 9, 12, 6, custom
   
   // Traceability Fields
-  projectName: 'BOTAŞ Doğal Gaz İletim Hattı - Faz 2',
+  projectName: 'Doğal Gaz İletim Hattı - Faz 2',
   lineSection: 'Lot 3 (Büküm Sahası)',
   chainageKP: 'KP 154+280',
   pipeNo: 'P-1284',
@@ -77,6 +77,7 @@ const dom = {
   badgeMaxAngleInfo: document.getElementById('badgeMaxAngleInfo'),
   selRadiusMultiplier: document.getElementById('selRadiusMultiplier'),
   inpCalculatedRadius: document.getElementById('inpCalculatedRadius'),
+  inpManualPulls: document.getElementById('inpManualPulls'),
   groupCustomRadius: document.getElementById('groupCustomRadius'),
   inpCustomRadius: document.getElementById('inpCustomRadius'),
   inpTangent1: document.getElementById('inpTangent1'),
@@ -144,11 +145,16 @@ const dom = {
   // Pulls Table
   tbodyPulls: document.getElementById('tbodyPulls'),
   pullSummaryPill: document.getElementById('pullSummaryPill'),
+  btnTogglePulls: document.getElementById('btnTogglePulls'),
+  pullsWrap: document.getElementById('pullsWrap'),
   
   // Tabs & Views
   tab2D: document.getElementById('tab2D'),
   tab3D: document.getElementById('tab3D'),
   visInfoLabel: document.getElementById('visInfoLabel'),
+  arrowStartPath: null,
+  arrowEndPath: null,
+  svgMethod2Group: null,
   view2D: document.getElementById('view2D'),
   view3D: document.getElementById('view3D'),
   svgDynamicGroup: document.getElementById('svgDynamicGroup'),
@@ -163,6 +169,11 @@ const dom = {
   btn3dResetCam: document.getElementById('btn3dResetCam'),
   btn3dToggleMandrel: document.getElementById('btn3dToggleMandrel'),
   btn3dToggleSeam: document.getElementById('btn3dToggleSeam'),
+  btn3dPlay: document.getElementById('btn3dPlay'),
+  btn3dStep: document.getElementById('btn3dStep'),
+  animProgress: document.getElementById('animProgress'),
+  legend3DValueExt: document.getElementById('legend3DValueExt'),
+  legend3DValueInt: document.getElementById('legend3DValueInt'),
 
   // Printable Card Dynamic References
   prtDocNo: document.getElementById('prtDocNo'),
@@ -195,6 +206,7 @@ const dom = {
   prtSeamStatus: document.getElementById('prtSeamStatus'),
   prtGirthWeldStatus: document.getElementById('prtGirthWeldStatus'),
   prtPullsBody: document.getElementById('prtPullsBody'),
+  prtPullsHead: document.getElementById('prtPullsHead'),
 
   // Global Verdict Banner
   masterVerdict: document.getElementById('masterVerdict'),
@@ -330,7 +342,7 @@ function calculateMinimumBendRadiusMultiplier(standard, odMm) {
     if (npsInches <= 18) return 27;
     return 30;
   } else if (standard === 'BOTAS_SPEC') {
-    // BOTAŞ / TANAP strict specification
+    // Employer strict specification
     if (npsInches <= 12) return 18;
     if (npsInches <= 16) return 24;
     if (npsInches <= 24) return 30;
@@ -340,7 +352,7 @@ function calculateMinimumBendRadiusMultiplier(standard, odMm) {
 }
 
 /**
- * ASME B31.8 / BOTAŞ Seam Clock Position & Neutral Axis Safety Validator
+ * ASME B31.8 / Employer Seam Clock Position & Neutral Axis Safety Validator
  * Overbend & Sagbend (Vertical Bending): Neutral axis is at 3:00 and 9:00 (+/- 10 deg)
  * Sidebend Right & Left (Horizontal Bending): Neutral axis is at 12:00 and 6:00 (+/- 10 deg)
  */
@@ -377,7 +389,7 @@ function validateClockSafety(bendType, clockPos, customAngle) {
       isSafe = true;
       badgeText = 'NÖTR EKSEN UYGUN';
       badgeClass = 'pass';
-      desc = `${bendName}: Kaynak dikişi Saat ${clockPos}:00 nötr eksenindedir. Çekme ve basma gerilmelerinden muaftır (ASME & BOTAŞ KABUL).`;
+      desc = `${bendName}: Kaynak dikişi Saat ${clockPos}:00 nötr eksenindedir. Çekme ve basma gerilmelerinden muaftır (ASME KABUL).`;
     } else if (clockPos === '12' || clockPos === '6') {
       isSafe = false;
       badgeText = 'KRİTİK UYARI / RET';
@@ -386,7 +398,7 @@ function validateClockSafety(bendType, clockPos, customAngle) {
       const zone = (bendType === 'overbend') 
         ? (clockPos === '12' ? 'Ekstrados (Maksimum Çekme & Cidar İncelmesi)' : 'İntrados (Maksimum Basma & Kalınlaşma)')
         : (clockPos === '12' ? 'İntrados (Maksimum Basma)' : 'Ekstrados (Maksimum Çekme)');
-      desc = `DİKKAT: Dikiş Saat ${clockPos}:00 (${zone}) üzerindedir! ASME B31.8 ve BOTAŞ gereği kaynak dikişi Saat 3:00 veya 9:00 nötr eksenine alınmalıdır.`;
+      desc = `DİKKAT: Dikiş Saat ${clockPos}:00 (${zone}) üzerindedir! ASME B31.8 gereği kaynak dikişi Saat 3:00 veya 9:00 nötr eksenine alınmalıdır.`;
     } else {
       const diff3 = Math.abs(angleDeg);
       const diff9 = Math.abs(Math.abs(angleDeg) - 180);
@@ -487,7 +499,7 @@ function runCalculations() {
   if (state.useMandrel) {
     estimatedOvality = Math.min(estimatedOvality * 0.32, 1.15);
   }
-  const isOvalityCompliant = estimatedOvality <= 2.50; // ASME / BOTAŞ ILI Pig passage limit (<= 2.5%)
+  const isOvalityCompliant = estimatedOvality <= 2.50; // ASME ILI Pig passage limit (<= 2.5%)
   const deltaID_mm = (estimatedOvality / 100) * (D - 2 * state.t_nom);
   
   // Springback (Elastik Geri Yaylanma) Calculation
@@ -502,20 +514,29 @@ function runCalculations() {
   const clockCheck = validateClockSafety(state.bendType, state.clockPos, state.seamAngle);
   const isSeamSafe = clockCheck.isSafe;
   
-  // --- Standard Hydraulic Step/Pull Calculations (ASME B31.8 / B31.4 / BOTAŞ / CRC-Evans) ---
+  // --- Standard Hydraulic Step/Pull Calculations (ASME B31.8 / B31.4 / CRC-Evans) ---
   // Active curved arc length traversed by hydraulic bending die:
   const l_bent_m = r_bend_m * (machineAngleDeg * Math.PI / 180);
-  const l_t2_actual = Math.max(0, state.length - state.tangent1 - l_bent_m);
-  
+
   // Max allowable pull angle per step per standard (to prevent localized wrinkling/kink):
   // X65-X80 high grade steels: <= 1.0 deg/pull, Lower grades: <= 1.25 deg/pull
   const maxAllowPullAngle = (S_mpa >= 450) ? 1.00 : 1.25;
-  
+
   // Standard step pitch: 350-450mm for >=24", 250-350mm for <24"
   const targetStepPitch = (D >= 600) ? 0.40 : 0.30; // meters
   const n_from_pitch = Math.round(l_bent_m / targetStepPitch);
   const n_from_angle = Math.ceil(machineAngleDeg / maxAllowPullAngle);
-  const numPulls = Math.max(2, Math.max(n_from_pitch, n_from_angle));
+  const n_auto = Math.max(2, Math.max(n_from_pitch, n_from_angle));
+  // Manual override (2-60); empty input falls back to automatic
+  const manualPullsUsed = Number.isInteger(state.manualPulls);
+  const numPulls = manualPullsUsed ? state.manualPulls : n_auto;
+
+  // Pull start: front-anchored at Lt1, but centered in the available arc
+  // when both tangents are equal (leftover split evenly both ends).
+  const isCentered = Math.abs(state.tangent1 - state.tangent2) < 1e-6;
+  const pullShiftM = isCentered ? Math.max(0, (l_arc_m - l_bent_m) / 2) : 0;
+  const pullStartM = state.tangent1 + pullShiftM;
+  const l_t2_actual = Math.max(0, state.length - pullStartM - l_bent_m);
   
   const pullStepPitch = l_bent_m / numPulls;
   const pullAnglePerStep = machineAngleDeg / numPulls;
@@ -588,6 +609,10 @@ function runCalculations() {
     isSeamSafe,
     maxAllowPullAngle,
     numPulls,
+    manualPullsUsed,
+    pullStartM,
+    pullShiftM,
+    isCentered,
     pullStepPitch,
     pullAnglePerStep,
     netAnglePerStep,
@@ -613,6 +638,7 @@ function runCalculations() {
    ========================================================================== */
 
 function updateUI() {
+  stopBendAnimation(false); // sidebar edits cancel the bend animation
   const calc = runCalculations();
   
   // Standard badge (+ select sync so first paint matches state)
@@ -625,7 +651,7 @@ function updateUI() {
   } else if (state.standard === 'ASME_B31_4') {
     dom.standardDisplayBadge.textContent = 'ASME B31.4 (Md. 406.2.1)';
   } else if (state.standard === 'BOTAS_SPEC') {
-    dom.standardDisplayBadge.textContent = 'BOTAŞ / TANAP Kriteri';
+    dom.standardDisplayBadge.textContent = 'İşveren Kriteri';
   } else {
     dom.standardDisplayBadge.textContent = 'Özel Şartname';
   }
@@ -782,6 +808,9 @@ function updateUI() {
     dom.badgeRippleMatrix.textContent = isMatrix4Pass ? 'PASS' : 'FAIL';
     dom.badgeRippleMatrix.className = `badge-pill ${isMatrix4Pass ? 'pass' : 'fail'}`;
   }
+
+  // Method-2 schematic with live values
+  renderMethod2Sketch(calc);
   
   // Populate Hydraulic Pulls Table
   renderPullsTable(calc);
@@ -800,15 +829,50 @@ function updateUI() {
 }
 
 /* ==========================================================================
-   Fabrication Pull Steps Table Rendering (ASME & BOTAS Standards)
+   Method-2 Schematic (ASME 841.2.3-1: deflection per diameter)
+   Illustrative, not to scale — labels carry the live values.
+   ========================================================================== */
+
+function renderMethod2Sketch(calc) {
+  if (!dom.svgMethod2Group) dom.svgMethod2Group = document.getElementById('svgMethod2Group');
+  const g = dom.svgMethod2Group;
+  if (!g) return;
+  const pass = calc.isMethod2Compliant;
+  const verdictColor = pass ? '#10b981' : '#ef4444';
+  const mono = "font-family:'JetBrains Mono',monospace";
+  const a = (22 * Math.PI) / 180; // fixed readable sweep; live numbers in labels
+  const ox = 52, oy = 18, r = 104;
+  const ax = ox, ay = oy + r;
+  const bx = ox + r * Math.sin(a), by = oy + r * Math.cos(a);
+  const wx = ox + 26 * Math.sin(a), wy = oy + 26 * Math.cos(a);
+  const f = (n) => n.toFixed(1);
+  g.innerHTML =
+    `<line x1="${ox}" y1="${oy}" x2="${ax}" y2="${ay}" stroke="#64748b" stroke-width="1" stroke-dasharray="3,3"/>` +
+    `<line x1="${ox}" y1="${oy}" x2="${f(bx)}" y2="${f(by)}" stroke="#64748b" stroke-width="1" stroke-dasharray="3,3"/>` +
+    `<path d="M ${ax} ${ay} A ${r} ${r} 0 0 0 ${f(bx)} ${f(by)}" fill="none" stroke="#0284c7" stroke-width="3.5"/>` +
+    `<path d="M ${ox} ${oy + 26} A 26 26 0 0 0 ${f(wx)} ${f(wy)}" fill="none" stroke="#d97706" stroke-width="2"/>` +
+    `<line x1="${ax}" y1="${ay}" x2="${f(bx)}" y2="${f(by)}" stroke="#d97706" stroke-width="1" stroke-dasharray="4,3"/>` +
+    `<circle cx="${ox}" cy="${oy}" r="3.5" fill="#10b981"/>` +
+    `<text x="${ox + 6}" y="${oy + 5}" font-size="10" style="fill:var(--text-muted);${mono};">O</text>` +
+    `<text x="64" y="34" font-size="11" font-weight="bold" style="fill:#d97706;${mono};">θ</text>` +
+    `<text x="150" y="62" font-size="11" style="fill:var(--text-main);${mono};">fiili θ = ${calc.actualDeflectionRatePerOD.toFixed(2)}°/D</text>` +
+    `<text x="150" y="82" font-size="11" style="fill:var(--text-muted);${mono};">limit ≤ ${calc.asmeMethod2Limit.toFixed(1)}°/D</text>` +
+    `<text x="150" y="106" font-size="12" font-weight="bold" style="fill:${verdictColor};${mono};">${pass ? 'PASS ✓' : 'RET ✗'} (Yöntem 2)</text>` +
+    `<text x="${f((ax + bx) / 2 - 40)}" y="${f((ay + by) / 2 + 24)}" font-size="10" style="fill:var(--text-muted);${mono};">yay = 1D (${state.od.toFixed(0)} mm)</text>` +
+    `<text x="${f(ox + 30)}" y="${f(oy + 64)}" font-size="10" style="fill:var(--text-muted);${mono};">R = ${calc.r_bend_m.toFixed(1)} m</text>`;
+}
+
+/* ==========================================================================
+   Fabrication Pull Steps Table Rendering (ASME Standards)
    ========================================================================== */
 
 function renderPullsTable(calc) {
   dom.tbodyPulls.innerHTML = '';
-  dom.pullSummaryPill.textContent = `Toplam ${calc.numPulls} Paso • İlerleme: ${(calc.pullStepPitch * 1000).toFixed(0)} mm • ~${calc.pullAnglePerStep.toFixed(2)}°/Paso • Büküm Boyu: ${calc.l_bent_m.toFixed(2)} m (Kalan Arka Düzlük: ${calc.l_t2_actual.toFixed(2)} m)`;
-  
-  // Starting die advance from front tangent Lt1
-  let currentPos = state.tangent1;
+  const modeNote = `${calc.manualPullsUsed ? ' (manuel adet)' : ''}${calc.isCentered ? ' (ortalı)' : ''}`;
+  dom.pullSummaryPill.textContent = `Toplam ${calc.numPulls} Paso${modeNote} • İlerleme: ${(calc.pullStepPitch * 1000).toFixed(0)} mm • ~${calc.pullAnglePerStep.toFixed(2)}°/Paso • Büküm Boyu: ${calc.l_bent_m.toFixed(2)} m (Kalan Arka Düzlük: ${calc.l_t2_actual.toFixed(2)} m)`;
+
+  // Starting die advance from the pull start (centered when Lt1 == Lt2)
+  let currentPos = calc.pullStartM;
   let cumMachAngle = 0;
   let cumNetAngle = 0;
   
@@ -840,34 +904,36 @@ function render2DSketch(calc) {
   const g = dom.svgDynamicGroup;
   g.innerHTML = '';
   
-  // Available canvas bounds: 1000 x 550
-  const svgWidth = 1000;
-  const svgHeight = 550;
-  
+  // Available canvas bounds: 1000 x 550 (see #svgBend2D viewBox)
+
   // Real dimensions in meters
-  const totalLength = state.length;
   const t1 = state.tangent1;
   const t2 = state.tangent2;
-  // Drawn rear straight uses the realized remainder so the sketch agrees
-  // with the pulls table ("Kalan Arka Düzlük"), not just the Lt2 input.
-  const t2draw = Math.max(t2, calc.l_t2_actual);
+  // Bend zone start: front-anchored at Lt1, or centered when Lt1 == Lt2.
+  // Manual inputs reshape the sketch: front straight, arc position and
+  // pull markers all follow the pull start.
+  const pullStartM = calc.pullStartM;
   const r_bend = calc.r_bend_m;
   const thetaRad = (state.targetAngle * Math.PI) / 180;
-  
-  // Dynamic scaling so the pipe comfortably fits the SVG viewport
-  // Pipe length ~8m - 20m, deflection angle up to 30 deg
-  const scale = 580 / Math.max(8, totalLength); // pixels per meter
-  
-  // Visual radius for display (scaled reasonably so curvature is clear)
-  const r_vis = Math.max(160, Math.min(380, r_bend * scale * 0.35));
+  const t2draw = Math.max(t2, state.length - pullStartM - r_bend * thetaRad);
+
+  // Fit-to-span scaling: the whole realized pipe (tangents + true arc
+  // length) always fills the viewport, whatever the pipe length.
+  const spanM = Math.max(1, pullStartM + r_bend * thetaRad + t2draw);
+  const scale = 760 / spanM; // pixels per meter
+
+  // True-proportion bend radius so curvature reads correctly at any length.
+  // (Cold bends are gentle arcs: small angles render subtle, as built.)
+  const r_vis = Math.max(140, Math.min(1500, r_bend * scale));
+  const clampSvg = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
   const pipeDiaVis = Math.max(14, Math.min(32, (state.od / 1000) * scale * 2.2));
   
   // Starting coordinate of pipe on screen
   const startX = 110;
   const startY = 380; // horizontal baseline
   
-  // Point of Curvature (PC) - End of Tangent 1
-  const t1_len_px = t1 * scale;
+  // Point of Curvature (PC) - pull start (Lt1, or centered offset)
+  const t1_len_px = pullStartM * scale;
   const x_pc = startX + t1_len_px;
   const y_pc = startY;
   
@@ -960,9 +1026,11 @@ function render2DSketch(calc) {
   const radiusColor = isLight ? '#0284c7' : '#38bdf8';
   const arcColor = isLight ? '#d97706' : '#f59e0b';
 
-  // Synchronize SVG defs arrow markers
-  const arrowStart = document.getElementById('arrowStart')?.querySelector('path');
-  const arrowEnd = document.getElementById('arrowEnd')?.querySelector('path');
+  // Synchronize SVG defs arrow markers (paths cached; theme recolors them)
+  const arrowStart = dom.arrowStartPath || document.getElementById('arrowStart')?.querySelector('path');
+  const arrowEnd = dom.arrowEndPath || document.getElementById('arrowEnd')?.querySelector('path');
+  if (!dom.arrowStartPath && arrowStart) dom.arrowStartPath = arrowStart;
+  if (!dom.arrowEndPath && arrowEnd) dom.arrowEndPath = arrowEnd;
   if (arrowStart) arrowStart.setAttribute('fill', dimLineColor);
   if (arrowEnd) arrowEnd.setAttribute('fill', dimLineColor);
 
@@ -970,11 +1038,12 @@ function render2DSketch(calc) {
   drawEndCap(g, int_startX, int_startY, ext_startX, ext_startY, 'Boru Başı', endCapColor);
   drawEndCap(g, int_endX, int_endY, ext_endX, ext_endY, 'Boru Sonu', endCapColor);
   
-  // Pull / Step markers along the centerline arc
-  const numSteps = Math.min(calc.numPulls, 16);
-  for (let i = 1; i <= numSteps; i++) {
-    const fraction = i / (numSteps + 1);
-    const curAngle = thetaRad * fraction;
+  // Pull / Step markers at exact table positions: each pull's arc
+  // distance (i·pitch) over the machine bend length maps proportionally
+  // onto the drawn arc, so markers match the pull table meter-for-meter.
+  for (let i = 1; i <= calc.numPulls; i++) {
+    const fraction = (calc.pullStepPitch * i) / Math.max(1e-9, calc.l_bent_m);
+    const curAngle = thetaRad * Math.min(1, fraction);
     const px = cx + r_vis * Math.sin(curAngle);
     const py = cy + r_vis * Math.cos(curAngle);
     
@@ -986,30 +1055,35 @@ function render2DSketch(calc) {
     g.appendChild(circle);
   }
   
-  // Center of Curvature O & Radial Vector Line
+  // Center of Curvature O & Radial Vector Line.
+  // At true proportions O is usually far off-screen, so the guide is
+  // anchored on PC and the label is clamped into the viewport.
+  const oOnScreen = cx >= -60 && cx <= 1060 && cy >= -60 && cy <= 610;
+  const gx = cx;
+  const gy = oOnScreen ? cy : y_pc - 130;
   const lineRadius = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-  lineRadius.setAttribute('x1', cx);
-  lineRadius.setAttribute('y1', cy);
+  lineRadius.setAttribute('x1', gx);
+  lineRadius.setAttribute('y1', gy);
   lineRadius.setAttribute('x2', x_pc);
   lineRadius.setAttribute('y2', y_pc);
   lineRadius.setAttribute('stroke', dimLineColor);
   lineRadius.setAttribute('stroke-width', '1.5');
   lineRadius.setAttribute('stroke-dasharray', '4,4');
   g.appendChild(lineRadius);
-  
+
   const centerO = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-  centerO.setAttribute('cx', cx);
-  centerO.setAttribute('cy', cy);
+  centerO.setAttribute('cx', gx);
+  centerO.setAttribute('cy', gy);
   centerO.setAttribute('r', '4.5');
   centerO.setAttribute('fill', '#10b981');
   g.appendChild(centerO);
-  
-  drawSvgText(g, cx - 14, cy - 10, 'O (Büküm Merkezi)', subTextColor, '11px', 'var(--font-mono)');
+
+  drawSvgText(g, clampSvg(gx - 14, 8, 880), clampSvg(gy - 10, 20, 540), oOnScreen ? 'O (Büküm Merkezi)' : `O (ölçek dışı • R=${r_bend.toFixed(1)}m)`, subTextColor, '11px', 'var(--font-mono)');
   
   // Dimension Lines and Annotations
   if (state.showDimensions) {
-    // Tangent 1 Dimension (Lt1)
-    drawDimensionLine(g, startX, startY + 48, x_pc, y_pc + 48, `Lt1 = ${t1.toFixed(1)} m (Ön Düzlük)`, dimLineColor, textColor);
+    // Tangent 1 Dimension (drawn front straight; centered offset noted)
+    drawDimensionLine(g, startX, startY + 48, x_pc, y_pc + 48, calc.isCentered ? `Ön = ${pullStartM.toFixed(1)} m (ortalı)` : `Lt1 = ${t1.toFixed(1)} m (Ön Düzlük)`, dimLineColor, textColor);
     
     // Tangent 2 Dimension (Lt2)
     const t2_dimOffset = 48;
@@ -1024,11 +1098,18 @@ function render2DSketch(calc) {
     // Total Pipe Length Dimension at Bottom
     drawDimensionLine(g, startX, startY + 95, endX, startY + 95, `Boru Boyu: ${state.length.toFixed(1)} m | Efektif Büküm Yayı: ${calc.l_arc_m.toFixed(2)} m`, dimLineColor, textColor);
     
-    // Deflection Angle Arc (at center O)
-    drawAngleArcCorrect(g, cx, cy, 75, 0, thetaRad, `θ = ${state.targetAngle.toFixed(1)}° (Makine: ${calc.machineAngleDeg.toFixed(1)}°)`, arcColor);
-    
-    // Radius Label
-    drawSvgText(g, cx + 14, cy + r_vis * 0.5, `Rbend = ${calc.r_bend_m.toFixed(1)} m (${state.radiusMultiplier}D)`, radiusColor, '12px', 'var(--font-mono)', 'bold');
+    // Deflection Angle (arc around O when visible, else inline label at arc mid)
+    const thetaLabel = `θ = ${state.targetAngle.toFixed(1)}° (Makine: ${calc.machineAngleDeg.toFixed(1)}°)`;
+    if (oOnScreen && r_vis <= 600) {
+      drawAngleArcCorrect(g, cx, cy, 75, thetaRad, thetaLabel, arcColor);
+    } else {
+      const amx = cx + r_vis * Math.sin(thetaRad / 2);
+      const amy = cy + r_vis * Math.cos(thetaRad / 2);
+      drawSvgText(g, clampSvg(amx + 14, 8, 860), clampSvg(amy - 12, 20, 540), thetaLabel, arcColor, '11px', 'var(--font-mono)', 'bold');
+    }
+
+    // Radius Label (anchored on the visible guide, clamped into viewport)
+    drawSvgText(g, clampSvg((gx + x_pc) / 2 + 14, 8, 830), clampSvg((gy + y_pc) / 2, 20, 540), `Rbend = ${calc.r_bend_m.toFixed(1)} m (${state.radiusMultiplier}D)`, radiusColor, '12px', 'var(--font-mono)', 'bold');
     
     // Extrados Thinning Label (Below outer red curve)
     const midExtAngle = thetaRad * 0.5;
@@ -1073,8 +1154,8 @@ function drawDimensionLine(g, x1, y1, x2, y2, text, strokeColor = '#94a3b8', tex
   drawSvgText(g, midX, midY, text, textColor, '11px', 'var(--font-mono)', 'bold', 'middle');
 }
 
-function drawAngleArcCorrect(g, cx, cy, radius, startAngle, endAngle, label, arcColor = '#f59e0b') {
-  // startAngle = 0 (points straight down: 0, +radius)
+function drawAngleArcCorrect(g, cx, cy, radius, endAngle, label, arcColor = '#f59e0b') {
+  // Arc starts straight down from O: (cx, cy + radius)
   const x1 = cx;
   const y1 = cy + radius;
   const x2 = cx + radius * Math.sin(endAngle);
@@ -1109,13 +1190,24 @@ function drawSvgText(g, x, y, text, fill, fontSize, fontFamily, fontWeight = 'no
    3D WebGL Pipe Visualization (Mathematically Continuous C1 Curve)
    ========================================================================== */
 
-let scene3D, camera3D, renderer3D, controls3D, gridHelper3D;
+let scene3D, camera3D, renderer3D, controls3D, gridHelper3D, lightRig3D;
 let pipeCenter3D = null; // pipe midpoint, applied to orbit target on tab switch only
-// Single home framing for the 3D view (opening view + all reset buttons)
-const CAM_HOME = { pos: [0, 7, 18], tgt: [0, 0, 0] };
+// Single home framing for the 3D view (opening view; resets re-fit distance)
+const CAM_HOME_POS = [0, 7, 18];
 let pipeMesh3D = null;
 let mandrelMesh3D = null;
 let seamLine3D = null;
+let pullMarkers3D = [];
+let bendCurve3D = null; // { curve, len } of the last built 3D pipe
+let machineGroup3D = null;
+let animLowDetail = false;
+const bendAnim = { active: false, playing: false, step: 0, total: 0, done: 0, timer: null };
+const ANIM_PRESS_MS = 380;
+const ANIM_GAP_MS = 220;
+// Long pull lists play faster so a full run stays watchable (~12 s max)
+function animStepInterval(total) {
+  return Math.min(ANIM_PRESS_MS + ANIM_GAP_MS, Math.max(150, Math.round(12000 / Math.max(1, total))));
+}
 let is3DInitialized = false;
 
 function update3DGrid(isLight) {
@@ -1127,9 +1219,60 @@ function update3DGrid(isLight) {
   }
   const c1 = isLight ? 0x94a3b8 : 0x1e293b;
   const c2 = isLight ? 0xcbd5e1 : 0x111827;
-  gridHelper3D = new THREE.GridHelper(26, 26, c1, c2);
+  // Grid follows the pipe length so long joints stay on a reference floor
+  const gridSize = Math.ceil((state.length + 8) / 2) * 2;
+  gridHelper3D = new THREE.GridHelper(gridSize, gridSize, c1, c2);
   gridHelper3D.position.y = -2.5;
   scene3D.add(gridHelper3D);
+}
+
+// Theme-reactive 3D light rig: keeps the pipe readable on both dark and
+// light backgrounds (static lights washed out in light theme, looked flat in dark).
+function tune3DLights(isLight) {
+  if (!scene3D || !lightRig3D) return;
+  const { ambient, key, rim, hemi } = lightRig3D;
+  if (isLight) {
+    scene3D.background = new THREE.Color(0xf1f5f9);
+    ambient.intensity = 0.55;
+    ambient.color.set(0xffffff);
+    key.intensity = 1.15;
+    key.color.set(0xfff7ed);
+    rim.intensity = 0.35;
+    rim.color.set(0xbae6fd);
+    hemi.intensity = 0.45;
+    hemi.color.set(0xffffff);
+    hemi.groundColor.set(0x94a3b8);
+    if (renderer3D) renderer3D.toneMappingExposure = 1.0;
+  } else {
+    scene3D.background = new THREE.Color(0x090d16);
+    ambient.intensity = 0.75;
+    ambient.color.set(0xdbeafe);
+    key.intensity = 1.0;
+    key.color.set(0x7dd3fc);
+    rim.intensity = 0.55;
+    rim.color.set(0xfbbf24);
+    hemi.intensity = 0.5;
+    hemi.color.set(0x8ab4ff);
+    hemi.groundColor.set(0x0b0f19);
+    if (renderer3D) renderer3D.toneMappingExposure = 1.12;
+  }
+}
+
+// Fit the camera distance to the pipe length along the current view
+// direction (orientation is preserved; only framing is corrected).
+function frameCameraToPipe() {
+  if (!camera3D || !controls3D) return;
+  const w = (dom.container3D && dom.container3D.clientWidth) || 800;
+  const h = (dom.container3D && dom.container3D.clientHeight) || 480;
+  const tanV = Math.tan((camera3D.fov * Math.PI) / 360);
+  const dist = Math.max(10, (state.length / 2 + 2.5) / (tanV * (w / h)));
+  const c = pipeCenter3D || { x: 0, y: 0, z: 0 };
+  controls3D.target.set(c.x, c.y, c.z);
+  const dir = new THREE.Vector3().subVectors(camera3D.position, controls3D.target);
+  if (dir.lengthSq() < 1e-6) dir.set(0, 0.4, 1);
+  dir.normalize();
+  camera3D.position.copy(controls3D.target).addScaledVector(dir, dist);
+  controls3D.update();
 }
 
 function applyTheme(themeName) {
@@ -1141,18 +1284,22 @@ function applyTheme(themeName) {
     if (dom.themeIcon) dom.themeIcon.textContent = '🌙';
     if (dom.themeLabel) dom.themeLabel.textContent = 'Koyu Tema';
     if (scene3D) {
-      scene3D.background = new THREE.Color(0xf8fafc);
       update3DGrid(true);
+      tune3DLights(true);
+      if (is3DInitialized && dom.view3D.classList.contains('active')) update3DPipe(runCalculations());
     }
   } else {
     document.body.classList.remove('light-theme');
     if (dom.themeIcon) dom.themeIcon.textContent = '☀️';
     if (dom.themeLabel) dom.themeLabel.textContent = 'Açık Tema';
     if (scene3D) {
-      scene3D.background = new THREE.Color(0x090d16);
       update3DGrid(false);
+      tune3DLights(false);
+      if (is3DInitialized && dom.view3D.classList.contains('active')) update3DPipe(runCalculations());
     }
   }
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if (metaTheme) metaTheme.setAttribute('content', isLight ? '#f8fafc' : '#0b0f19');
   render2DSketch(runCalculations());
 }
 
@@ -1174,14 +1321,23 @@ function init3DScene() {
   
   // Camera setup
   camera3D = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-  camera3D.position.set(...CAM_HOME.pos);
+  camera3D.position.set(...CAM_HOME_POS);
   
-  // Renderer setup
-  renderer3D = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  // Renderer setup (may throw when WebGL is unavailable)
+  try {
+    renderer3D = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  } catch (err) {
+    dom.loading3D.innerHTML = '<span>WebGL başlatılamadı — 3D görünüm kullanılamıyor.</span>';
+    return;
+  }
   renderer3D.setSize(width, height);
   renderer3D.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer3D.shadowMap.enabled = true;
+  renderer3D.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer3D.domElement.style.display = 'block';
   container.appendChild(renderer3D.domElement);
+  // The wrapper already carries role="img" + label; hide the raw canvas
+  renderer3D.domElement.setAttribute('aria-hidden', 'true');
   
   // OrbitControls
   if (typeof THREE.OrbitControls !== 'undefined') {
@@ -1193,17 +1349,24 @@ function init3DScene() {
     controls3D.target.set(0, 0, 0);
   }
   
-  // Lighting
+  // Lighting (theme-reactive rig; tuned per theme by tune3DLights)
   const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
   scene3D.add(ambientLight);
-  
+
   const dirLight1 = new THREE.DirectionalLight(0x38bdf8, 0.9);
   dirLight1.position.set(10, 20, 15);
   scene3D.add(dirLight1);
-  
+
   const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
   dirLight2.position.set(-15, -10, -10);
   scene3D.add(dirLight2);
+
+  const hemiLight = new THREE.HemisphereLight(0x8ab4ff, 0x0b0f19, 0.5);
+  hemiLight.position.set(0, 12, 0);
+  scene3D.add(hemiLight);
+
+  lightRig3D = { ambient: ambientLight, key: dirLight1, rim: dirLight2, hemi: hemiLight };
+  tune3DLights(isLight);
   
   // Floor Reference Grid
   update3DGrid(isLight);
@@ -1211,10 +1374,10 @@ function init3DScene() {
   dom.loading3D.style.display = 'none';
   is3DInitialized = true;
   
-  // Animation Loop (skips GPU work while the 3D tab is hidden)
+  // Animation Loop (skips GPU work while the 3D tab is hidden or tab is in background)
   function animate() {
     requestAnimationFrame(animate);
-    if (!dom.view3D.classList.contains('active')) return;
+    if (document.hidden || !dom.view3D.classList.contains('active')) return;
     if (controls3D) controls3D.update();
     renderer3D.render(scene3D, camera3D);
   }
@@ -1234,7 +1397,7 @@ function onWindowResize3D() {
   renderer3D.setSize(width, height);
 }
 
-function update3DPipe(calc) {
+function update3DPipe(calc, angleOverrideDeg = null) {
   if (!is3DInitialized) {
     if (dom.view3D.classList.contains('active')) {
       init3DScene();
@@ -1242,6 +1405,7 @@ function update3DPipe(calc) {
       return;
     }
   }
+  if (!is3DInitialized || !scene3D || typeof THREE === 'undefined') return;
 
   // Perf: skip rebuild while 3D tab is hidden.
   // Tab switch (tab3D handler) already calls update3DPipe after activating view3D.
@@ -1258,15 +1422,21 @@ function update3DPipe(calc) {
   disposeMesh(pipeMesh3D);
   disposeMesh(mandrelMesh3D);
   disposeMesh(seamLine3D);
+  (pullMarkers3D || []).forEach(disposeMesh);
+  pullMarkers3D = [];
   pipeMesh3D = mandrelMesh3D = seamLine3D = null;
   
   // Geometry parameters
   const totalLength = state.length;
   const t1 = state.tangent1;
   const t2 = state.tangent2;
+  // Manual inputs reshape the model: bend zone starts at the pull start
+  // (centered when Lt1 == Lt2); rear straight fills the realized length.
+  const pbStart = calc.pullStartM;
   const r_bend = calc.r_bend_m;
-  const thetaRad = (state.targetAngle * Math.PI) / 180;
-  
+  const thetaRad = ((angleOverrideDeg != null ? angleOverrideDeg : state.targetAngle) * Math.PI) / 180;
+  const t2draw3D = Math.max(t2, state.length - pbStart - r_bend * thetaRad);
+
   // Pipe outer radius in 3D coordinate units (1m = 1 unit)
   const pipeRadius = (state.od / 1000) / 2;
   
@@ -1280,12 +1450,12 @@ function update3DPipe(calc) {
   const numStepsT1 = 16;
   for (let i = 0; i <= numStepsT1; i++) {
     const fraction = i / numStepsT1;
-    const x = startX + t1 * fraction;
+    const x = startX + pbStart * fraction;
     curvePoints.push(new THREE.Vector3(x, 0, 0));
   }
   
   // Point of Curvature (PC)
-  const x_pc = startX + t1;
+  const x_pc = startX + pbStart;
   
   // --- 2. BENT CIRCULAR ARC (Smooth C1 tangency starting at PC) ---
   const numStepsArc = 40;
@@ -1339,9 +1509,9 @@ function update3DPipe(calc) {
   
   for (let i = 1; i <= numStepsT2; i++) {
     const fraction = i / numStepsT2;
-    const x = pt_last.x + t2 * fraction * dirX;
-    const y = pt_last.y + t2 * fraction * dirY;
-    const z = pt_last.z + t2 * fraction * dirZ;
+    const x = pt_last.x + t2draw3D * fraction * dirX;
+    const y = pt_last.y + t2draw3D * fraction * dirY;
+    const z = pt_last.z + t2draw3D * fraction * dirZ;
     curvePoints.push(new THREE.Vector3(x, y, z));
   }
   
@@ -1349,61 +1519,111 @@ function update3DPipe(calc) {
   const pipeCurve = new THREE.CatmullRomCurve3(curvePoints);
   
   // Tube Geometry with vertex colors for stress visualization
-  const tubularSegments = 140;
-  const radialSegments = 32;
+  // (low detail while the bend animation rebuilds every step)
+  const tubularSegments = animLowDetail ? 56 : 140;
+  const radialSegments = animLowDetail ? 14 : 32;
   const pipeGeom = new THREE.TubeGeometry(pipeCurve, tubularSegments, pipeRadius, radialSegments, false);
   
-  // Add Vertex Colors for Stress Gradient
+  // Fiber stress gradient (intrados/extrados): sigma = E*y/R, epsilon = y/R.
+  // q = signed fiber coordinate in [-1, +1] measured from the bend neutral
+  // plane along the deflection direction (extrados +, intrados -). Tangents
+  // stay neutral; the bend zone blends in with a smoothstep feather.
+  // (Elastic fiber theory; in reality limited by yielding — pass/fail stays
+  // with the thinning/ovality checks. Core formulas untouched.)
+  const E_MOD = 207000; // MPa, steel
+  const odM = state.od / 1000;
+  const bendDir = (() => {
+    if (state.bendType === 'overbend') return { x: 0, y: 1, z: 0 };
+    if (state.bendType === 'sagbend') return { x: 0, y: -1, z: 0 };
+    if (state.bendType === 'sidebend_right') return { x: 0, y: 0, z: 1 };
+    if (state.bendType === 'sidebend_left') return { x: 0, y: 0, z: -1 };
+    const s = Math.SQRT1_2;
+    return { x: 0, y: s, z: s };
+  })();
+  const arcPts = [];
+  for (let k = arcStartIndex; k <= arcEndIndex; k++) {
+    const p = curvePoints[k];
+    arcPts.push(p.x, p.y, p.z);
+  }
+  const arcCount = arcPts.length / 3;
+  const spanX = pt_last.x - x_pc;
+  const feather = Math.max(spanX * 0.06, 1e-9);
+  const themeIsLight = document.body.classList.contains('light-theme');
+  // Neutral steel base (theme-aware so tangents read on both backgrounds)
+  const nR = themeIsLight ? 0.40 : 0.52;
+  const nG = themeIsLight ? 0.47 : 0.59;
+  const nB = themeIsLight ? 0.56 : 0.68;
+  // Gradient poles: tension (extrados) red, compression (intrados) blue
+  const tR = 0.93, tG = 0.26, tB = 0.26;
+  const cR = 0.24, cG = 0.52, cB = 0.95;
+
   const count = pipeGeom.attributes.position.count;
   const colors = new Float32Array(count * 3);
   const pos = pipeGeom.attributes.position;
-  
+
   for (let i = 0; i < count; i++) {
     const vx = pos.getX(i);
     const vy = pos.getY(i);
     const vz = pos.getZ(i);
-    
-    if (vx >= x_pc && vx <= pt_last.x) {
-      let isTension = false;
-      if (state.bendType === 'overbend') {
-        isTension = vy > 0.08;
-      } else if (state.bendType === 'sagbend') {
-        isTension = vy < -0.08;
-      } else if (state.bendType === 'sidebend_right') {
-        isTension = vz < 0.12;
-      } else if (state.bendType === 'sidebend_left') {
-        isTension = vz > -0.12;
-      } else {
-        isTension = (vy + vz) > 0.08;
-      }
 
-      if (isTension) {
-        // Tension face (Red/Orange Extrados)
-        colors[i * 3] = 0.94;
-        colors[i * 3 + 1] = 0.27;
-        colors[i * 3 + 2] = 0.27;
-      } else {
-        // Compression face (Blue Intrados)
-        colors[i * 3] = 0.23;
-        colors[i * 3 + 1] = 0.51;
-        colors[i * 3 + 2] = 0.96;
+    // Bend-zone mask with feathered edges (0 on tangents, 1 inside arc)
+    let m = 0;
+    if (spanX > 1e-9 && vx >= x_pc && vx <= pt_last.x) {
+      const edge = Math.min(vx - x_pc, pt_last.x - vx) / feather;
+      const f = Math.min(1, edge);
+      m = f * f * (3 - 2 * f);
+    }
+
+    let q = 0;
+    if (m > 0 && arcCount > 0 && pipeRadius > 1e-12) {
+      // Nearest arc centerline point -> radial fiber direction
+      let best = Infinity, bx = 0, by = 0, bz = 0;
+      for (let a = 0; a < arcCount; a++) {
+        const dx = vx - arcPts[a * 3];
+        const dy = vy - arcPts[a * 3 + 1];
+        const dz = vz - arcPts[a * 3 + 2];
+        const d2 = dx * dx + dy * dy + dz * dz;
+        if (d2 < best) { best = d2; bx = dx; by = dy; bz = dz; }
       }
+      q = (bx * bendDir.x + by * bendDir.y + bz * bendDir.z) / pipeRadius;
+      if (q > 1) q = 1;
+      else if (q < -1) q = -1;
+      q *= m;
+    }
+
+    const mag = Math.pow(Math.abs(q), 0.8);
+    if (q >= 0) {
+      colors[i * 3] = nR + (tR - nR) * mag;
+      colors[i * 3 + 1] = nG + (tG - nG) * mag;
+      colors[i * 3 + 2] = nB + (tB - nB) * mag;
     } else {
-      // Tangents (Steel Grey)
-      colors[i * 3] = 0.45;
-      colors[i * 3 + 1] = 0.52;
-      colors[i * 3 + 2] = 0.60;
+      colors[i * 3] = nR + (cR - nR) * mag;
+      colors[i * 3 + 1] = nG + (cG - nG) * mag;
+      colors[i * 3 + 2] = nB + (cB - nB) * mag;
     }
   }
   pipeGeom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  
+
+  // Extreme fiber values for the 3D legend (elastic theory)
+  if (r_bend > 1e-9 && odM > 0) {
+    const epsMax = (odM / 2) / r_bend; // strain at outer fiber
+    const sigMax = E_MOD * epsMax;     // MPa, elastic fiber stress
+    const extTxt = `ε +${(epsMax * 100).toFixed(2)}% · σ ≈ +${sigMax.toFixed(0)} MPa`;
+    const intTxt = `ε −${(epsMax * 100).toFixed(2)}% · σ ≈ −${sigMax.toFixed(0)} MPa`;
+    if (dom.legend3DValueExt) dom.legend3DValueExt.textContent = spanX > 1e-9 ? extTxt : '—';
+    if (dom.legend3DValueInt) dom.legend3DValueInt.textContent = spanX > 1e-9 ? intTxt : '—';
+  } else {
+    if (dom.legend3DValueExt) dom.legend3DValueExt.textContent = '—';
+    if (dom.legend3DValueInt) dom.legend3DValueInt.textContent = '—';
+  }
+
   // When the internal mandrel is shown, fade the shell so the green
   // mandrel inside the opaque tube actually becomes visible.
   const mandrelShown = state.useMandrel && state.mandrelVisible3D;
   const pipeMaterial = new THREE.MeshStandardMaterial({
     vertexColors: true,
-    metalness: 0.75,
-    roughness: 0.35,
+    metalness: 0.45,
+    roughness: 0.42,
     wireframe: false,
     transparent: mandrelShown,
     opacity: mandrelShown ? 0.45 : 1.0
@@ -1421,7 +1641,7 @@ function update3DPipe(calc) {
     
     if (mandrelCurvePoints.length > 2) {
       const mandrelCurve = new THREE.CatmullRomCurve3(mandrelCurvePoints);
-      const mandrelGeom = new THREE.TubeGeometry(mandrelCurve, 40, pipeRadius * 0.86, 16, false);
+      const mandrelGeom = new THREE.TubeGeometry(mandrelCurve, animLowDetail ? 16 : 40, pipeRadius * 0.86, 16, false);
       const mandrelMat = new THREE.MeshStandardMaterial({
         color: 0x10b981,
         metalness: 0.9,
@@ -1445,7 +1665,7 @@ function update3DPipe(calc) {
       // SAWH: Helical Spiral Weld Seam wrapping 360° around the pipe
       const helixAngleRad = 58 * Math.PI / 180;
       const pitch = Math.PI * (2 * pipeRadius) / Math.tan(helixAngleRad);
-      const numSamples = 240;
+      const numSamples = animLowDetail ? 90 : 240;
       
       for (let i = 0; i <= numSamples; i++) {
         const u = i / numSamples;
@@ -1468,7 +1688,7 @@ function update3DPipe(calc) {
       }
       
       const seamCurve = new THREE.CatmullRomCurve3(seamPoints);
-      const seamGeom = new THREE.TubeGeometry(seamCurve, 200, Math.max(0.015, pipeRadius * 0.038), 8, false);
+      const seamGeom = new THREE.TubeGeometry(seamCurve, animLowDetail ? 80 : 200, Math.max(0.015, pipeRadius * 0.038), 8, false);
       const seamMat = new THREE.MeshStandardMaterial({
         color: 0xf59e0b,
         metalness: 0.9,
@@ -1479,7 +1699,7 @@ function update3DPipe(calc) {
       
     } else if (state.seamType === 'SAWL') {
       // SAWL / HFW: Longitudinal Weld Seam along the specified clock angle
-      const numSamples = 120;
+      const numSamples = animLowDetail ? 48 : 120;
       for (let i = 0; i <= numSamples; i++) {
         const u = i / numSamples;
         const pt = pipeCurve.getPointAt(u);
@@ -1498,7 +1718,7 @@ function update3DPipe(calc) {
       }
       
       const seamCurve = new THREE.CatmullRomCurve3(seamPoints);
-      const seamGeom = new THREE.TubeGeometry(seamCurve, 100, Math.max(0.018, pipeRadius * 0.042), 8, false);
+      const seamGeom = new THREE.TubeGeometry(seamCurve, animLowDetail ? 40 : 100, Math.max(0.018, pipeRadius * 0.042), 8, false);
       const seamMat = new THREE.MeshStandardMaterial({
         color: 0xfbbf24,
         metalness: 0.88,
@@ -1521,6 +1741,29 @@ function update3DPipe(calc) {
     dom.btn3dToggleSeam.setAttribute('aria-pressed', String(state.seamVisible3D));
   }
   
+  // --- Pull-station rings at exact table distances (same meters as tbodyPulls) ---
+  // During an animation session only completed stations are shown and the
+  // active pull is highlighted red.
+  if (calc.numPulls > 0 && pipeRadius > 0) {
+    const curveLen = Math.max(1e-9, pipeCurve.getLength());
+    const ringGeom = new THREE.TorusGeometry(pipeRadius * 1.03, Math.max(0.012, pipeRadius * 0.03), 8, animLowDetail ? 12 : 24);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b });
+    const ringMatActive = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+    const zAxis = new THREE.Vector3(0, 0, 1);
+    for (let i = 1; i <= calc.numPulls; i++) {
+      if (bendAnim.active && i > bendAnim.step) continue;
+      const isActivePull = bendAnim.active && i === bendAnim.step;
+      const u = Math.min(1, (calc.pullStartM + calc.pullStepPitch * i) / curveLen);
+      const ring = new THREE.Mesh(ringGeom, isActivePull ? ringMatActive : ringMat);
+      if (isActivePull) ring.scale.setScalar(1.5);
+      ring.position.copy(pipeCurve.getPointAt(u));
+      ring.quaternion.setFromUnitVectors(zAxis, pipeCurve.getTangentAt(u).normalize());
+      scene3D.add(ring);
+      pullMarkers3D.push(ring);
+    }
+  }
+  bendCurve3D = { curve: pipeCurve, len: pipeCurve.getLength() };
+
   // Remember pipe center for tab-switch framing; never touch the user's
   // live orbit target here so sidebar edits don't yank the camera.
   const endPt = curvePoints[curvePoints.length - 1];
@@ -1532,10 +1775,158 @@ function update3DPipe(calc) {
 }
 
 /* ==========================================================================
+   Bend Animation: stepwise 3D bending at pull stations with machine
+   ========================================================================== */
+
+// Stylized bending machine (portal press) built in local coords with the
+// pipe running along local +Z. Dimensions scale with the pipe radius.
+function buildBendingMachine(pr) {
+  const group = new THREE.Group();
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.6, roughness: 0.5 });
+  const ramMat = new THREE.MeshStandardMaterial({ color: 0xeab308, metalness: 0.5, roughness: 0.4 });
+  const dieMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, metalness: 0.7, roughness: 0.45 });
+  const add = (geom, mat, x, y, z) => {
+    const m = new THREE.Mesh(geom, mat);
+    m.position.set(x, y, z);
+    group.add(m);
+    return m;
+  };
+  const W = pr * 2.4;
+  const colH = pr * 7;
+  add(new THREE.BoxGeometry(pr * 1.0, colH, pr * 1.6), frameMat, -W, colH / 2 - pr, 0);
+  add(new THREE.BoxGeometry(pr * 1.0, colH, pr * 1.6), frameMat, W, colH / 2 - pr, 0);
+  add(new THREE.BoxGeometry(W * 2 + pr, pr * 1.2, pr * 1.8), frameMat, 0, colH - pr * 0.4, 0);
+  add(new THREE.CylinderGeometry(pr * 0.8, pr * 0.8, pr * 2.2, 20), ramMat, 0, colH - pr * 2.2, 0);
+  const ram = add(new THREE.BoxGeometry(pr * 2.0, pr * 0.9, pr * 1.4), ramMat, 0, pr * 1.9, 0);
+  add(new THREE.BoxGeometry(pr * 2.0, pr * 0.7, pr * 1.4), dieMat, 0, pr * 1.0, 0);
+  add(new THREE.BoxGeometry(pr * 1.2, pr * 0.6, pr * 2.2), dieMat, -pr * 1.6, -pr * 0.2, 0);
+  add(new THREE.BoxGeometry(pr * 1.2, pr * 0.6, pr * 2.2), dieMat, pr * 1.6, -pr * 0.2, 0);
+  group.userData.ram = ram;
+  group.userData.ramBaseY = pr * 1.9;
+  group.userData.pr = pr;
+  return group;
+}
+
+function removeBendingMachine() {
+  if (!machineGroup3D) return;
+  machineGroup3D.traverse((o) => {
+    if (o.geometry) o.geometry.dispose();
+    if (o.material) o.material.dispose();
+  });
+  if (scene3D) scene3D.remove(machineGroup3D);
+  machineGroup3D = null;
+}
+
+function placeBendingMachineAt(sMeters) {
+  if (!machineGroup3D || !bendCurve3D || !bendCurve3D.curve) return;
+  const u = Math.min(1, Math.max(0, sMeters / Math.max(1e-9, bendCurve3D.len)));
+  machineGroup3D.position.copy(bendCurve3D.curve.getPointAt(u));
+  machineGroup3D.quaternion.setFromUnitVectors(
+    new THREE.Vector3(0, 0, 1),
+    bendCurve3D.curve.getTangentAt(u).normalize()
+  );
+}
+
+function setRamPressed(pressed) {
+  if (!machineGroup3D || !machineGroup3D.userData.ram) return;
+  machineGroup3D.userData.ram.position.y =
+    machineGroup3D.userData.ramBaseY - (pressed ? machineGroup3D.userData.pr * 0.55 : 0);
+}
+
+let _animUiSig = '';
+function syncAnimUI() {
+  // Skip redundant DOM writes on every keystroke-driven updateUI
+  const sig = `${bendAnim.playing ? 1 : 0}|${bendAnim.active ? 1 : 0}|${bendAnim.step}|${bendAnim.total}|${bendAnim.done}`;
+  if (sig === _animUiSig) return;
+  _animUiSig = sig;
+  if (dom.btn3dPlay) {
+    dom.btn3dPlay.textContent = bendAnim.playing ? '⏸ Duraklat' : '▶ Bükümü Oynat';
+    dom.btn3dPlay.setAttribute('aria-pressed', String(bendAnim.playing));
+  }
+  if (dom.animProgress) {
+    dom.animProgress.textContent = bendAnim.done > 0
+      ? `Tamamlandı • ${bendAnim.done}/${bendAnim.total}`
+      : bendAnim.active ? `Paso ${bendAnim.step}/${bendAnim.total}` : 'Hazır';
+  }
+}
+
+function ensureMachine() {
+  if (machineGroup3D || !scene3D || typeof THREE === 'undefined') return;
+  machineGroup3D = buildBendingMachine((state.od / 1000) / 2);
+  scene3D.add(machineGroup3D);
+}
+
+// Render animation step k (1-based): bend grows to k net pulls, machine
+// parks at that pull station with the ram pressed.
+function renderAnimStep(k) {
+  const calc = runCalculations();
+  const ang = state.targetAngle * (k / Math.max(1, calc.numPulls));
+  animLowDetail = true;
+  try {
+    update3DPipe(calc, ang);
+  } finally {
+    animLowDetail = false; // never leak low-detail mode into static views
+  }
+  setRamPressed(true);
+  placeBendingMachineAt(calc.pullStartM + calc.pullStepPitch * Math.max(1, k));
+  bendAnim.step = k;
+  syncAnimUI();
+}
+
+function animTick() {
+  if (!bendAnim.playing) return;
+  const calc = runCalculations();
+  if (bendAnim.step >= calc.numPulls) {
+    stopBendAnimation(true, true);
+    return;
+  }
+  renderAnimStep(bendAnim.step + 1);
+  const interval = animStepInterval(bendAnim.total);
+  bendAnim.timer = setTimeout(() => {
+    setRamPressed(false);
+    if (!bendAnim.playing) return;
+    bendAnim.timer = setTimeout(animTick, Math.round(interval * 0.37));
+  }, Math.round(interval * 0.63));
+}
+
+function startBendAnimation() {
+  if (!dom.view3D.classList.contains('active') || typeof THREE === 'undefined') return;
+  const calc = runCalculations();
+  bendAnim.total = calc.numPulls;
+  if (bendAnim.step >= calc.numPulls) bendAnim.step = 0;
+  ensureMachine();
+  if (!machineGroup3D) return;
+  bendAnim.active = true;
+  bendAnim.playing = true;
+  syncAnimUI();
+  animTick();
+}
+
+function stopBendAnimation(restoreStatic, keepFinal) {
+  bendAnim.playing = false;
+  if (bendAnim.timer) {
+    clearTimeout(bendAnim.timer);
+    bendAnim.timer = null;
+  }
+  const wasActive = bendAnim.active;
+  bendAnim.active = false;
+  bendAnim.step = 0;
+  bendAnim.done = (keepFinal && bendAnim.total > 0) ? bendAnim.total : 0;
+  animLowDetail = false;
+  removeBendingMachine();
+  syncAnimUI();
+  if (restoreStatic && wasActive && dom.view3D.classList.contains('active')) {
+    update3DPipe(runCalculations());
+  }
+}
+
+/* ==========================================================================
    Printable A4 QC Inspection Sheet Data Sync
    ========================================================================== */
 
 function updatePrintableCard(calc) {
+  // Official sheet uses Turkish decimal commas (10,82°)
+  const tr = (n, d = 2) => Number(n).toFixed(d).replace('.', ',');
   // Document No & Date
   const today = new Date();
   const dateStr = `${String(today.getDate()).padStart(2, '0')}.${String(today.getMonth() + 1).padStart(2, '0')}.${today.getFullYear()}`;
@@ -1565,46 +1956,63 @@ function updatePrintableCard(calc) {
   }
   
   // Section 1
-  if (dom.prtPipeLength) dom.prtPipeLength.textContent = `${state.length.toFixed(2)} m`;
-  if (dom.prtPipeOD) dom.prtPipeOD.textContent = `${state.npsLabel} (${state.od.toFixed(1)} mm)`;
+  if (dom.prtPipeLength) dom.prtPipeLength.textContent = `${tr(state.length)} m`;
+  if (dom.prtPipeOD) dom.prtPipeOD.textContent = `${state.npsLabel} (${tr(state.od, 1)} mm)`;
   if (dom.prtSteelGrade) dom.prtSteelGrade.textContent = `${state.gradeName} (SMYS: ${state.smys} MPa)`;
-  if (dom.prtNomWT) dom.prtNomWT.textContent = `${state.t_nom.toFixed(2)} mm (CA: ${state.ca.toFixed(1)} mm)`;
+  if (dom.prtNomWT) dom.prtNomWT.textContent = `${tr(state.t_nom)} mm (CA: ${tr(state.ca, 1)} mm)`;
   if (dom.prtSeam) dom.prtSeam.textContent = `${state.seamType} - ${clockCheck.lblClock}`;
-  if (dom.prtDesignPress) dom.prtDesignPress.textContent = `${state.designPressure.toFixed(1)} bar (F: ${state.designFactor})`;
+  if (dom.prtDesignPress) dom.prtDesignPress.textContent = `${tr(state.designPressure, 1)} bar (F: ${String(state.designFactor).replace('.', ',')})`;
   
   // Section 2
-  if (dom.prtRCalculated) dom.prtRCalculated.textContent = `${calc.r_bend_m.toFixed(2)} m (${state.radiusMultiplier} D)`;
-  if (dom.prtRmin) dom.prtRmin.textContent = `${calc.r_min_m.toFixed(2)} m (${calc.isRadiusCompliant ? 'UYGUN' : 'UYGUN DEĞİL'})`;
-  if (dom.prtThetaTarget) dom.prtThetaTarget.textContent = `${state.targetAngle.toFixed(2)}°`;
-  if (dom.prtThetaMax) dom.prtThetaMax.textContent = `${calc.theta_max_deg.toFixed(2)}° (${calc.isAngleWithinPipeCapacity ? 'KAPASİTE DAHİLİ' : 'AŞIM'})`;
-  if (dom.prtTangents) dom.prtTangents.textContent = `${state.tangent1.toFixed(2)} m / ${state.tangent2.toFixed(2)} m`;
-  if (dom.prtArcLength) dom.prtArcLength.textContent = `${calc.l_arc_m.toFixed(2)} m`;
-  if (dom.prtSpringback) dom.prtSpringback.textContent = `${calc.springbackDeg.toFixed(2)}°`;
-  if (dom.prtMachineAngle) dom.prtMachineAngle.textContent = `${calc.machineAngleDeg.toFixed(2)}°`;
+  if (dom.prtRCalculated) dom.prtRCalculated.textContent = `${tr(calc.r_bend_m)} m (${state.radiusMultiplier} D)`;
+  if (dom.prtRmin) dom.prtRmin.textContent = `${tr(calc.r_min_m)} m (${calc.minMult}D, ${calc.isRadiusCompliant ? 'UYGUN' : 'UYGUN DEĞİL'})`;
+  if (dom.prtThetaTarget) dom.prtThetaTarget.textContent = `${tr(state.targetAngle)}°`;
+  if (dom.prtThetaMax) {
+    dom.prtThetaMax.textContent = !calc.isTangentFeasible
+      ? `${tr(calc.theta_max_deg)}° (TEĞET HATASI)`
+      : !calc.isAngleWithinPipeCapacity
+        ? `${tr(calc.theta_max_deg)}° (AŞIM)`
+        : !calc.isGeometryFeasible
+          ? `${tr(calc.theta_max_deg)}° (YAY YETERSİZ)`
+          : `${tr(calc.theta_max_deg)}° (KAPASİTE DAHİLİ)`;
+  }
+  if (dom.prtTangents) {
+    dom.prtTangents.textContent = calc.isCentered
+      ? `${tr(calc.pullStartM)} m / ${tr(calc.l_t2_actual)} m (ortalı: giriş ${tr(state.tangent1)} / ${tr(state.tangent2)})`
+      : `${tr(state.tangent1)} m / ${tr(state.tangent2)} m`;
+  }
+  if (dom.prtArcLength) dom.prtArcLength.textContent = `${tr(calc.l_arc_m)} m (makine yayı: ${tr(calc.l_bent_m)} m)`;
+  if (dom.prtSpringback) dom.prtSpringback.textContent = `${tr(calc.springbackDeg)}°`;
+  if (dom.prtMachineAngle) dom.prtMachineAngle.textContent = `${tr(calc.machineAngleDeg)}°`;
   
   // Section 3
-  if (dom.prtThinning) dom.prtThinning.textContent = `${calc.delta_t_thin.toFixed(2)} mm (%${calc.thinningPercent.toFixed(2)})`;
-  if (dom.prtRemainingWT) dom.prtRemainingWT.textContent = `${calc.t_extrados.toFixed(2)} mm (t_min: ${calc.t_min_design.toFixed(2)} mm) - ${calc.isWallThinningSafe ? 'KABUL' : 'RET'}`;
-  if (dom.prtOvality) dom.prtOvality.textContent = `%${calc.estimatedOvality.toFixed(2)} (Maks: %2.5) - ${calc.isOvalityCompliant ? 'KABUL' : 'RET'}`;
+  if (dom.prtThinning) dom.prtThinning.textContent = `${tr(calc.delta_t_thin)} mm (%${tr(calc.thinningPercent)})`;
+  if (dom.prtRemainingWT) dom.prtRemainingWT.textContent = `${tr(calc.t_extrados)} mm (t_min: ${tr(calc.t_min_design)} mm) - ${calc.isWallThinningSafe ? 'KABUL' : 'RET'}`;
+  if (dom.prtOvality) dom.prtOvality.textContent = `%${tr(calc.estimatedOvality)} (Maks: %2,5) - ${calc.isOvalityCompliant ? 'KABUL' : 'RET'}`;
   if (dom.prtMandrel) dom.prtMandrel.textContent = state.useMandrel ? 'İç Hidrolik Mandrel Kullanıldı (KABUL)' : 'Mandrelsiz Büküm Yapıldı';
-  if (dom.prtDeflectionRate) dom.prtDeflectionRate.textContent = `${calc.actualDeflectionRatePerOD.toFixed(2)}° / D (Limit: ≤ ${calc.asmeMethod2Limit.toFixed(1)}° / D) - ${calc.isMethod2Compliant ? 'KABUL' : 'RET'}`;
-  if (dom.prtRippleStatus) dom.prtRippleStatus.textContent = `~${calc.estimatedRippleMm.toFixed(1)} mm (Limit: ≤ ${calc.maxAllowRippleMm.toFixed(1)} mm / %1.0 D) - ${calc.isRippleCompliant ? 'KABUL' : 'RET'}`;
+  if (dom.prtDeflectionRate) dom.prtDeflectionRate.textContent = `${tr(calc.actualDeflectionRatePerOD)}° / D (Limit: ≤ ${tr(calc.asmeMethod2Limit, 1)}° / D) - ${calc.isMethod2Compliant ? 'KABUL' : 'RET'}`;
+  if (dom.prtRippleStatus) dom.prtRippleStatus.textContent = `~${tr(calc.estimatedRippleMm, 1)} mm (Limit: ≤ ${tr(calc.maxAllowRippleMm, 1)} mm / %1,0 D) - ${calc.isRippleCompliant ? 'KABUL' : 'RET'}`;
   if (dom.prtSeamStatus) dom.prtSeamStatus.textContent = calc.isSeamSafe ? 'Nötr Eksen ±10° sınırında (KABUL)' : 'Nötr Eksen Dışında (RET)';
   if (dom.prtGirthWeldStatus) dom.prtGirthWeldStatus.textContent = state.girthWeldInBend ? 'Alın Kaynağı MEVCUT (Md. 841.2.3-a-5 Gereği 100% RT ZORUNLU)' : 'Alın Kaynağı Yok (RT Gerekmez)';
 
   // Section 4: print pulls table (same math as renderPullsTable; truncated for A4)
+  if (dom.prtPullsHead) {
+    dom.prtPullsHead.textContent =
+      `4. HİDROLİK BÜKÜM ADIMLARI (PASO / PULL TABLOSU) — ${calc.numPulls} paso` +
+      `${calc.manualPullsUsed ? ' (manuel adet)' : ''}${calc.isCentered ? ' (ortalı)' : ''}`;
+  }
   const prtBody = dom.prtPullsBody;
   if (prtBody) {
     prtBody.innerHTML = '';
     const stepMm = (calc.pullStepPitch * 1000).toFixed(0);
-    const stepAng = calc.pullAnglePerStep.toFixed(2);
+    const stepAng = tr(calc.pullAnglePerStep);
     const rows = [];
     for (let i = 1; i <= calc.numPulls; i++) {
       rows.push({
         n: i,
-        pos: (state.tangent1 + calc.pullStepPitch * i).toFixed(3),
-        cumMach: (calc.pullAnglePerStep * i).toFixed(2),
-        cumNet: (calc.netAnglePerStep * i).toFixed(2)
+        pos: tr(calc.pullStartM + calc.pullStepPitch * i, 3),
+        cumMach: tr(calc.pullAnglePerStep * i),
+        cumNet: tr(calc.netAnglePerStep * i)
       });
     }
     const MAX_PRINT_ROWS = 30;
@@ -1617,14 +2025,64 @@ function updatePrintableCard(calc) {
       visible = [...rows.slice(0, head), null, ...rows.slice(rows.length - tail)];
     }
     visible.forEach((r) => {
-      const tr = document.createElement('tr');
+      const trow = document.createElement('tr');
       if (r === null) {
-        tr.innerHTML = `<td colspan="6" style="text-align:center;">… (${skipped} paso atlandı — tam liste için ekran tablosuna bakınız) …</td>`;
+        trow.innerHTML = `<td colspan="6" style="text-align:center;">… (${skipped} paso atlandı — tam liste için ekran tablosuna bakınız) …</td>`;
       } else {
-        tr.innerHTML = `<td><strong>${r.n}</strong></td><td>${r.pos}</td><td>${stepMm}</td><td>+${stepAng}°</td><td><strong>${r.cumMach}°</strong></td><td>${r.cumNet}°</td>`;
+        trow.innerHTML = `<td><strong>${r.n}</strong></td><td>${r.pos}</td><td>${stepMm}</td><td>+${stepAng}°</td><td><strong>${r.cumMach}°</strong></td><td>${r.cumNet}°</td>`;
       }
-      prtBody.appendChild(tr);
+      prtBody.appendChild(trow);
     });
+  }
+}
+
+/* ==========================================================================
+   Radius menu: only standard-compliant multipliers are offered
+   ========================================================================== */
+
+const RADIUS_CHOICES = [18, 21, 24, 27, 30, 40, 50];
+const RADIUS_LABELS = {
+  18: '18 D (Küçük Çap)',
+  21: '21 D',
+  24: '24 D',
+  27: '27 D',
+  30: '30 D (ASME Standart)',
+  40: '40 D (Sıkı Kriter)',
+  50: '50 D (Geniş Kavis)'
+};
+
+function allowedRadiusMultipliers() {
+  const minMult = calculateMinimumBendRadiusMultiplier(state.standard, state.od);
+  return RADIUS_CHOICES.filter(k => k >= minMult);
+}
+
+// Rebuilds the Rbend menu from the active standard + NPS. Keeps the current
+// choice when still permitted, otherwise falls back to the standard minimum.
+function syncRadiusOptions() {
+  const sel = dom.selRadiusMultiplier;
+  if (!sel) return;
+  const allowed = allowedRadiusMultipliers();
+  const prev = sel.value;
+  sel.innerHTML = '';
+  allowed.forEach((k) => {
+    const o = document.createElement('option');
+    o.value = String(k);
+    o.textContent = RADIUS_LABELS[k];
+    sel.appendChild(o);
+  });
+  const oc = document.createElement('option');
+  oc.value = 'custom';
+  oc.textContent = 'Özel Yarıçap...';
+  sel.appendChild(oc);
+  if (prev === 'custom' || allowed.includes(Number(prev))) {
+    sel.value = prev;
+    if (prev !== 'custom') state.radiusMultiplier = parseFloat(prev);
+    if (dom.groupCustomRadius) dom.groupCustomRadius.style.display = prev === 'custom' ? 'block' : 'none';
+  } else {
+    sel.value = String(allowed[0]);
+    state.radiusMultiplier = allowed[0];
+    if (dom.groupCustomRadius) dom.groupCustomRadius.style.display = 'none';
+    if (dom.inpCustomRadius) dom.inpCustomRadius.value = allowed[0];
   }
 }
 
@@ -1662,6 +2120,7 @@ function saveState() {
     delete data.theme; // theme persists under its own key
     data.npsSelect = dom.selNPS ? dom.selNPS.value : undefined;
     data.radiusSelect = dom.selRadiusMultiplier ? dom.selRadiusMultiplier.value : undefined;
+    data.preset = dom.selPreset ? dom.selPreset.value : undefined;
     localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(data));
   } catch (err) {
     /* storage unavailable (private mode, quota) — silently ignore */
@@ -1702,6 +2161,12 @@ function restoreState() {
   state.radiusMultiplier = num(data.radiusMultiplier, state.radiusMultiplier, 5, 100);
   state.designPressure = num(data.designPressure, state.designPressure, 1, 250);
   state.designFactor = oneOf(num(data.designFactor, state.designFactor), [0.8, 0.72, 0.6, 0.5, 0.4], state.designFactor);
+  if (data.manualPulls === null || data.manualPulls === undefined || data.manualPulls === '') {
+    state.manualPulls = null;
+  } else {
+    const mn = Math.round(Number(data.manualPulls));
+    state.manualPulls = Number.isFinite(mn) ? Math.min(60, Math.max(2, mn)) : null;
+  }
   state.useMandrel = data.useMandrel !== undefined ? !!data.useMandrel : state.useMandrel;
   state.girthWeldInBend = data.girthWeldInBend !== undefined ? !!data.girthWeldInBend : state.girthWeldInBend;
   state.showDimensions = data.showDimensions !== undefined ? !!data.showDimensions : state.showDimensions;
@@ -1710,6 +2175,8 @@ function restoreState() {
   ['projectName', 'lineSection', 'chainageKP', 'pipeNo', 'heatNo', 'reportNo'].forEach((k) => {
     if (typeof data[k] === 'string' && data[k].length > 0) state[k] = data[k];
   });
+  // Migrate old saved states that still carry the previous project name
+  state.projectName = state.projectName.replace(/^BOTAŞ\s+/, '');
 
   // Clock presets map to fixed seam angles (same as change handler)
   if (state.clockPos !== 'custom') {
@@ -1742,6 +2209,7 @@ function restoreState() {
   setVal(dom.rngTargetAngle, Math.min(state.targetAngle, 45.0));
   setVal(dom.inpTangent1, state.tangent1);
   setVal(dom.inpTangent2, state.tangent2);
+  setVal(dom.inpManualPulls, state.manualPulls == null ? '' : state.manualPulls);
   setVal(dom.inpDesignPressure, state.designPressure);
   if (dom.chkUseMandrel) dom.chkUseMandrel.checked = state.useMandrel;
   if (dom.chkGirthWeld) dom.chkGirthWeld.checked = state.girthWeldInBend;
@@ -1795,8 +2263,13 @@ function restoreState() {
   if (dom.btn3dToggleMandrel) dom.btn3dToggleMandrel.textContent = `Mandrel: ${state.mandrelVisible3D ? 'Açık' : 'Kapalı'}`;
   if (dom.btn3dToggleMandrel) dom.btn3dToggleMandrel.setAttribute('aria-pressed', String(state.mandrelVisible3D));
   if (dom.btn3dToggleSeam) dom.btn3dToggleSeam.setAttribute('aria-pressed', String(state.seamVisible3D));
-  // Restored values are no longer a named preset
-  if (dom.selPreset) dom.selPreset.value = 'custom';
+  // Restored preset display: manual edits were already marked custom on save
+  if (dom.selPreset) {
+    const savedPreset = typeof data.preset === 'string' ? data.preset : null;
+    const hasPreset = savedPreset && [...dom.selPreset.options].some(o => o.value === savedPreset);
+    dom.selPreset.value = hasPreset ? savedPreset : 'custom';
+  }
+  syncRadiusOptions();
 }
 
 function setupEventListeners() {
@@ -1844,7 +2317,10 @@ function setupEventListeners() {
       dom.rngTargetAngle.value = p.targetAngle;
       
       state.radiusMultiplier = p.radiusMultiplier;
-      dom.selRadiusMultiplier.value = p.radiusMultiplier;
+      dom.selRadiusMultiplier.value = String(p.radiusMultiplier);
+      syncRadiusOptions(); // keeps the preset value (all presets are compliant)
+      state.manualPulls = null;
+      if (dom.inpManualPulls) dom.inpManualPulls.value = '';
       if (dom.groupCustomRadius) dom.groupCustomRadius.style.display = 'none';
       if (dom.inpCustomRadius) dom.inpCustomRadius.value = p.radiusMultiplier;
       
@@ -1926,6 +2402,7 @@ function setupEventListeners() {
   // Standard change
   dom.selStandard.addEventListener('change', (e) => {
     state.standard = e.target.value;
+    syncRadiusOptions();
     updateUI();
   });
 
@@ -1941,11 +2418,13 @@ function setupEventListeners() {
       state.od = parseFloat(val);
       state.npsLabel = dom.selNPS.options[dom.selNPS.selectedIndex].text.split('(')[0].trim();
     }
+    syncRadiusOptions();
     updateUI();
   });
 
   dom.inpCustomOD.addEventListener('input', (e) => {
     state.od = clampNum(e.target.value, 50, 2500, 100);
+    syncRadiusOptions();
     updateUI();
   });
 
@@ -2032,6 +2511,20 @@ function setupEventListeners() {
     });
   }
 
+  // Manual pull count (empty = automatic 2-60 clamped integer)
+  if (dom.inpManualPulls) {
+    dom.inpManualPulls.addEventListener('input', (e) => {
+      const raw = String(e.target.value).trim().replace(',', '.');
+      if (raw === '') {
+        state.manualPulls = null;
+      } else {
+        const n = Number(raw);
+        state.manualPulls = Number.isFinite(n) ? Math.min(60, Math.max(2, Math.round(n))) : null;
+      }
+      updateUI();
+    });
+  }
+
   // Tangents
   dom.inpTangent1.addEventListener('input', (e) => {
     state.tangent1 = clampNum(e.target.value, 0.5, 5, 1.5);
@@ -2068,20 +2561,34 @@ function setupEventListeners() {
     });
   }
 
+  // Collapsible pulls table (long lists on small screens)
+  if (dom.btnTogglePulls) {
+    dom.btnTogglePulls.addEventListener('click', () => {
+      const collapsed = dom.pullsWrap ? dom.pullsWrap.classList.toggle('is-collapsed') : false;
+      dom.btnTogglePulls.textContent = collapsed ? 'Göster' : 'Gizle';
+      dom.btnTogglePulls.setAttribute('aria-expanded', String(!collapsed));
+    });
+  }
+
   // Tab Switching (2D vs 3D)
   dom.tab2D.addEventListener('click', () => {
     dom.tab2D.classList.add('active');
     dom.tab3D.classList.remove('active');
+    dom.tab2D.setAttribute('aria-selected', 'true');
+    dom.tab3D.setAttribute('aria-selected', 'false');
     dom.view2D.classList.add('active');
     dom.view3D.classList.remove('active');
     if (dom.visInfoLabel) dom.visInfoLabel.textContent = 'Şematik Vektör Analizi • Canlı Güncelleme';
     if (dom.btnResetView) dom.btnResetView.style.display = 'none';
+    stopBendAnimation(false);
     render2DSketch(runCalculations());
   });
 
   dom.tab3D.addEventListener('click', () => {
     dom.tab3D.classList.add('active');
     dom.tab2D.classList.remove('active');
+    dom.tab3D.setAttribute('aria-selected', 'true');
+    dom.tab2D.setAttribute('aria-selected', 'false');
     dom.view3D.classList.add('active');
     dom.view2D.classList.remove('active');
     init3DScene();
@@ -2092,14 +2599,13 @@ function setupEventListeners() {
       controls3D.target.set(pipeCenter3D.x, pipeCenter3D.y, pipeCenter3D.z);
       controls3D.update();
     }
+    frameCameraToPipe();
   });
 
   // View reset & toggle labels
   dom.btnResetView.addEventListener('click', () => {
     if (dom.view3D.classList.contains('active') && controls3D) {
-      camera3D.position.set(...CAM_HOME.pos);
-      controls3D.target.set(...CAM_HOME.tgt);
-      controls3D.update();
+      frameCameraToPipe();
     } else {
       render2DSketch(runCalculations());
     }
@@ -2115,14 +2621,13 @@ function setupEventListeners() {
   // 3D Control Buttons
   dom.btn3dResetCam.addEventListener('click', () => {
     if (camera3D && controls3D) {
-      camera3D.position.set(...CAM_HOME.pos);
-      controls3D.target.set(...CAM_HOME.tgt);
-      controls3D.update();
+      frameCameraToPipe();
     }
   });
 
   dom.btn3dToggleMandrel.addEventListener('click', () => {
     state.mandrelVisible3D = !state.mandrelVisible3D;
+    stopBendAnimation(false); // visibility edits end the animation session
     dom.btn3dToggleMandrel.textContent = `Mandrel: ${state.mandrelVisible3D ? 'Açık' : 'Kapalı'}`;
     dom.btn3dToggleMandrel.setAttribute('aria-pressed', String(state.mandrelVisible3D));
     update3DPipe(runCalculations());
@@ -2130,11 +2635,51 @@ function setupEventListeners() {
 
   dom.btn3dToggleSeam.addEventListener('click', () => {
     state.seamVisible3D = !state.seamVisible3D;
+    stopBendAnimation(false); // visibility edits end the animation session
     update3DPipe(runCalculations());
   });
 
+  // Bend animation controls
+  if (dom.btn3dPlay) {
+    dom.btn3dPlay.addEventListener('click', () => {
+      if (bendAnim.playing) {
+        bendAnim.playing = false;
+        if (bendAnim.timer) {
+          clearTimeout(bendAnim.timer);
+          bendAnim.timer = null;
+        }
+        setRamPressed(false);
+        syncAnimUI();
+      } else {
+        startBendAnimation();
+      }
+    });
+  }
+
+  if (dom.btn3dStep) {
+    dom.btn3dStep.addEventListener('click', () => {
+      if (!dom.view3D.classList.contains('active') || typeof THREE === 'undefined') return;
+      bendAnim.playing = false;
+      if (bendAnim.timer) {
+        clearTimeout(bendAnim.timer);
+        bendAnim.timer = null;
+      }
+      const calc = runCalculations();
+      bendAnim.total = calc.numPulls;
+      ensureMachine();
+      if (!machineGroup3D) return;
+      bendAnim.active = true;
+      if (bendAnim.step >= calc.numPulls) bendAnim.step = 0;
+      renderAnimStep(bendAnim.step + 1);
+      setRamPressed(false);
+      syncAnimUI();
+    });
+  }
+
   // Reset to Defaults
   dom.btnResetDefaults.addEventListener('click', () => {
+    const ok = window.confirm('Tüm girişler varsayılan preset değerlerine dönecek. Devam edilsin mi?');
+    if (!ok) return;
     dom.selPreset.value = 'botas_36';
     dom.selPreset.dispatchEvent(new Event('change'));
   });
@@ -2170,5 +2715,16 @@ window.addEventListener('DOMContentLoaded', () => {
   setupEventListeners();
   restoreState();
   applyTheme(state.theme);
+  syncRadiusOptions();
   updateUI();
+});
+
+// Ctrl+P bypasses the print button: refresh the QC card with live values.
+window.addEventListener('beforeprint', () => {
+  try { updatePrintableCard(runCalculations()); } catch (err) { /* print anyway */ }
+});
+
+// Flush pending inputs on tab close (debounced saver might not have run)
+window.addEventListener('pagehide', () => {
+  try { saveState(); } catch (err) { /* ignore */ }
 });

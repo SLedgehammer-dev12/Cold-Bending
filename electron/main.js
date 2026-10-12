@@ -1,5 +1,5 @@
 /**
- * ColdBend Pro v1.0.0 — Electron Main Process
+ * ColdBend Pro v2.4.0 — Electron Main Process
  * Tarayıcıda çalışan mevcut web uygulamasını (index.html + app.js)
  * macOS (.dmg) ve Windows (.exe) masaüstü uygulaması olarak paketler.
  * Mevcut hesap motoruna dokunmaz; sadece BrowserWindow kabuğudur.
@@ -7,7 +7,8 @@
 const { app, BrowserWindow, Menu, shell } = require('electron');
 const path = require('path');
 
-const APP_VERSION = '1.0.0';
+// Tek doğruluk kaynağı: package.json (arayüz rozetiyle aynı olmalı)
+const APP_VERSION = require('../package.json').version;
 const isMac = process.platform === 'darwin';
 
 let mainWindow = null;
@@ -95,10 +96,10 @@ function buildMenu() {
       label: 'Yardım',
       submenu: [
         {
-          label: 'Release Notları (v1.0.0)',
+          label: `Release Notları (v${APP_VERSION})`,
           click: async () => {
             await shell.openExternal(
-              'https://github.com/SLedgehammer-dev12/Cold-Bending/releases/tag/v1.0.0'
+              `https://github.com/SLedgehammer-dev12/Cold-Bending/releases/tag/v${APP_VERSION}`
             );
           }
         }

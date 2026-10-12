@@ -65,6 +65,25 @@ body {
 /* ==========================================================================
    Header & Navigation
    ========================================================================== */
+.skip-link {
+  position: absolute;
+  left: 12px;
+  top: -48px;
+  z-index: 100;
+  background: var(--primary);
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  transition: top 0.15s ease-in-out;
+}
+
+.skip-link:focus-visible {
+  top: 12px;
+}
+
 .app-header {
   background: linear-gradient(180deg, #162032 0%, #111827 100%);
   border-bottom: 1px solid var(--border-color);
@@ -778,6 +797,50 @@ body {
   pointer-events: none;
 }
 
+/* 3D fiber stress gradient legend (top-left of the 3D viewport) */
+.legend-3d-overlay {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border-color);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.legend-3d-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.legend-3d-theory {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: 0.66rem;
+}
+
+.legend-3d-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #3b82f6 0%, #8fa3b8 50%, #ef4444 100%);
+}
+
+.legend-3d-overlay .legend-item strong {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-main);
+  margin-left: auto;
+  padding-left: 10px;
+}
+
 .controls-3d-overlay {
   position: absolute;
   top: 14px;
@@ -806,6 +869,20 @@ body {
 .btn-3d-control:hover {
   background: #1e293b;
   border-color: #38bdf8;
+}
+
+.anim-progress {
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  text-align: center;
 }
 
 /* ==========================================================================
@@ -849,6 +926,17 @@ body {
   padding: 4px 10px;
   border-radius: 9999px;
   font-family: var(--font-mono);
+}
+
+.card-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.table-responsive.is-collapsed {
+  display: none;
 }
 
 .table-responsive {
@@ -920,7 +1008,7 @@ body {
   margin-bottom: 12px;
 }
 
-.matrix-card-header h4 {
+.matrix-card-header h3 {
   font-size: 0.84rem;
   font-weight: 700;
   color: #ffffff;
@@ -964,6 +1052,26 @@ body {
 .matrix-list strong {
   font-family: var(--font-mono);
   color: var(--text-main);
+}
+
+.method2-sketch {
+  margin-top: 12px;
+  border-top: 1px solid rgba(51, 65, 85, 0.6);
+  padding-top: 10px;
+}
+
+#svgMethod2 {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.method2-caption {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  margin-top: 4px;
+  text-align: center;
 }
 
 .text-success { color: #34d399 !important; }
@@ -1163,7 +1271,7 @@ body.light-theme .kpi-desc {
 }
 
 body.light-theme .card-section-title,
-body.light-theme .matrix-card-header h4 {
+body.light-theme .matrix-card-header h3 {
   color: #0f172a;
 }
 
@@ -1282,6 +1390,7 @@ body.light-theme .status-badge-blue {
 }
 
 body.light-theme .legend-overlay,
+body.light-theme .legend-3d-overlay,
 body.light-theme .hint-3d-overlay,
 body.light-theme .controls-3d-overlay .btn-3d-control {
   background: rgba(255, 255, 255, 0.95);

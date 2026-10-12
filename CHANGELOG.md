@@ -2,6 +2,30 @@
 
 Tüm önemli değişiklikler bu dosyada izlenir. Sürüm biçimi `MAJOR.MINOR.PATCH`.
 
+## [2.4.0] — 2026-10-12
+
+Arayüz rozeti, paket ve dosya adları v2.4.0'da birleştirildi. Dağıtım 4 gruba ayrıldı.
+
+### Eklenen
+- 3D fiber gerilme gradyanı (`update3DPipe`): intrados/extrados uç değerlerinden
+  (σ = E·y/R, ε = y/R) hesaplanan sürekli renk geçişi, tanjantlarda nötr, kenarlarda
+  yumuşak geçiş. Eski ikili kırmızı/mavi eşik mantığı ve sidebend asimetrisi giderildi.
+- 3D lejant overlay (`legend3D`, `legend3DValueExt/Int`): uç fiber değerleri canlı.
+- Tema-duyarlı 3D ışık rig'i (`tune3DLights`): karanlık/aydınlık temada ayrı
+  ambient/ana/rim/yarımküre dengesi + ACES ton eşleme; tema değişiminde 3D yeniden kurulur.
+- Browser paketi: `ColdBend-Pro-Web-vX.Y.Z.zip` (CI `build-web` işi).
+- Workflow versiyon-dinamik: etiket adından sürüm alır (`v*.*.*`), sonraki
+  release'lerde dosya adı/başlık/not yolu otomatik uyar.
+
+### Değişen
+- Sürüm rozeti, `package.json`, DMG başlığı, NSIS/Portable dosya adları → v2.4.0.
+- `electron/main.js` sürümü `package.json` dosyasından okur (tek kaynak).
+- Boru malzemesi `metalness 0.75 → 0.45`, `roughness 0.35 → 0.42` (gradyan okunurluğu).
+
+### Korunan (regresyon yok)
+- Çekirdek formüller ve `updateUI()` → pulls → print → 2D → 3D zinciri,
+  `prt*` / `matVal*` / `kpi*` bağlantıları, TR arayüz, tema, A4 baskı.
+
 ## [1.0.0] — 2026-10-12
 
 İlk kararlı release. Tarayıcı uygulaması değişmeden korunur; masaüstü dağıtım eklenir.
