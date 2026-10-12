@@ -27,7 +27,7 @@
     "directories": {
       "output": "dist"
     },
-    "publish": "never",
+    "publish": null,
     "files": [
       "index.html",
       "app.js",
