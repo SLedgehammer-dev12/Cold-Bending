@@ -54,8 +54,8 @@ jobs:
           path: ColdBend-Pro-Web-*.zip
           if-no-files-found: error
 
-  build-mac:
-    name: macOS (.dmg)
+  build-mac-x64:
+    name: macOS Intel (.dmg)
     runs-on: macos-latest
     steps:
       - name: Kodu al
@@ -73,18 +73,47 @@ jobs:
       - name: Hesap motoru sözdizimi kontrolü
         run: npm run check
 
-      - name: macOS paketini derle (.dmg)
-        run: npm run dist:mac
+      - name: macOS Intel paketini derle (.dmg)
+        run: npx electron-builder --mac --x64
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
-      - name: Artifact yükle (mac)
+      - name: Artifact yükle (mac x64)
         uses: actions/upload-artifact@v4
         with:
-          name: ColdBend-Pro-mac-${{ github.ref_name }}
-          path: |
-            dist/*.dmg
-            dist/*.zip
+          name: ColdBend-Pro-mac-x64-${{ github.ref_name }}
+          path: dist/*.dmg
+          if-no-files-found: error
+
+  build-mac-arm64:
+    name: macOS Silicon (.dmg)
+    runs-on: macos-latest
+    steps:
+      - name: Kodu al
+        uses: actions/checkout@v4
+
+      - name: Node.js kur (22)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Bağımlılıkları kur
+        run: npm ci --no-audit --no-fund
+
+      - name: Hesap motoru sözdizimi kontrolü
+        run: npm run check
+
+      - name: macOS Silicon paketini derle (.dmg)
+        run: npx electron-builder --mac --arm64
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Artifact yükle (mac arm64)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ColdBend-Pro-mac-arm64-${{ github.ref_name }}
+          path: dist/*.dmg
           if-no-files-found: error
 
   build-win:
@@ -119,7 +148,7 @@ jobs:
 
   publish-release:
     name: GitHub Release yayınla
-    needs: [build-web, build-mac, build-win]
+    needs: [build-web, build-mac-x64, build-mac-arm64, build-win]
     runs-on: ubuntu-latest
     steps:
       - name: Kodu al
@@ -131,11 +160,17 @@ jobs:
           name: ColdBend-Pro-web-${{ github.ref_name }}
           path: ./artifacts/web
 
-      - name: Artifactleri indir (mac)
+      - name: Artifactleri indir (mac x64)
         uses: actions/download-artifact@v4
         with:
-          name: ColdBend-Pro-mac-${{ github.ref_name }}
-          path: ./artifacts/mac
+          name: ColdBend-Pro-mac-x64-${{ github.ref_name }}
+          path: ./artifacts/mac-x64
+
+      - name: Artifactleri indir (mac arm64)
+        uses: actions/download-artifact@v4
+        with:
+          name: ColdBend-Pro-mac-arm64-${{ github.ref_name }}
+          path: ./artifacts/mac-arm64
 
       - name: Artifactleri indir (win)
         uses: actions/download-artifact@v4
@@ -153,7 +188,8 @@ jobs:
           prerelease: false
           files: |
             artifacts/web/*.zip
-            artifacts/mac/*.dmg
+            artifacts/mac-x64/*.dmg
+            artifacts/mac-arm64/*.dmg
             artifacts/win/*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
