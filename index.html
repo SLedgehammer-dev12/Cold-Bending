@@ -42,7 +42,7 @@
         </svg>
       </div>
       <div>
-        <h1 class="app-title">ColdBend Pro <span class="version-tag">v2.5.0 - ASME Compliant</span></h1>
+        <h1 class="app-title">ColdBend Pro <span class="version-tag">v2.6.0 - ASME Compliant</span></h1>
         <p class="app-subtitle">Boru Hattı Sahada Soğuk Bükümü (Cold Field Bend) Geometri, Cidar İncelmesi, Ovalleşme & Geri Yaylanma Hesap Motoru</p>
       </div>
     </div>
@@ -50,7 +50,7 @@
       <div class="standard-pill" id="standardDisplayBadge">ASME B31.8 (Md. 841.2.3)</div>
       <button class="btn btn-outline" id="btnCheckUpdates" title="Yeni program sürümünü denetle">
         <span aria-hidden="true">⟳</span>
-        <span id="updatePill" data-state="idle">v2.5.0</span>
+        <span id="updatePill" data-state="idle">v2.6.0</span>
       </button>
       <button class="btn btn-outline" id="btnToggleTheme" title="Açık / Koyu Tema Değiştir">
         <span id="themeIcon">☀️</span>
@@ -166,6 +166,24 @@
         <span class="field-helper">Standart tek boy: 12.0 m / 12.2 m (İstenen arazi boyu girilebilir)</span>
       </div>
 
+      <!-- Pipe Weight & Rigging Safety Indicator Box (API 5L / ISO 3183 / ASME B30.20) -->
+      <div class="pipe-weight-box" id="pipeWeightBox">
+        <div class="pipe-weight-header">
+          <span class="weight-label">Boru Ağırlığı & Vinç Kaldırma Yükü</span>
+          <span class="badge-mini" id="badgePipeWeightUnit">317.4 kg/m</span>
+        </div>
+        <div class="pipe-weight-values">
+          <div class="weight-item">
+            <span class="weight-sub">Toplam Boru Ağırlığı:</span>
+            <strong id="valTotalPipeWeight">3.81 Ton (3,809 kg)</strong>
+          </div>
+          <div class="weight-item">
+            <span class="weight-sub">Sapan / Rigging Yükü:</span>
+            <strong id="valRiggingSlingLoad">~1.90 Ton / Sapan</strong>
+          </div>
+        </div>
+      </div>
+
       <!-- API 5L Steel Grade -->
       <div class="form-group">
         <label for="selGrade" class="field-label">API 5L Çelik Kalitesi (Grade)</label>
@@ -243,7 +261,10 @@
       <div class="form-group highlighted-field">
         <div class="field-header-with-badge">
           <label for="inpTargetAngle" class="field-label">Hedef Güzergah Büküm Açısı (θ<sub>target</sub>)</label>
-          <span class="badge-mini" id="badgeMaxAngleInfo">Max: ~13.4°</span>
+          <div class="field-header-actions">
+            <button type="button" class="btn-xs-link" id="btnOpenSlopeCalc" title="Harita kot veya eğim farkından büküm açısı hesapla">📐 Kot/Eğimden Hesapla</button>
+            <span class="badge-mini" id="badgeMaxAngleInfo">Max: ~13.4°</span>
+          </div>
         </div>
         <div class="input-with-slider">
           <input type="number" id="inpTargetAngle" class="form-input" value="10.0" min="0.5" max="90.0" step="0.25">
@@ -296,6 +317,9 @@
           <input type="number" id="inpTangent2" class="form-input" value="1.8" min="0.5" max="5.0" step="0.1">
         </div>
       </div>
+      <div class="field-helper" id="helperTangentClamping" style="margin-top:-8px; margin-bottom:12px; font-size:0.75rem;">
+        Makine Kalıp & Sıkma Pimi Emniyet Payı: Min. 1.50 m
+      </div>
 
       <!-- Design Pressure & Class Location for Barlow Verification -->
       <div class="form-row">
@@ -315,6 +339,19 @@
         </div>
       </div>
 
+      <!-- Design Operating Temperature & Derating Factor T (ASME B31.8 Tablo 841.1.8-1) -->
+      <div class="form-group">
+        <div class="field-header-with-badge">
+          <label for="inpDesignTemp" class="field-label">Tasarım Sıcaklığı (T<sub>tasarım</sub>) [°C]</label>
+          <span class="badge-mini pass" id="badgeTempDerating">T = 1.000 (Azaltma Yok)</span>
+        </div>
+        <div class="input-with-angle">
+          <input type="number" id="inpDesignTemp" class="form-input" value="20.0" min="-20.0" max="250.0" step="1.0">
+          <span class="unit-text">°C</span>
+        </div>
+        <span class="field-helper" id="helperTempDerating">ASME B31.8 Tablo 841.1.8-1: ≤ 121°C (250°F) için T = 1.000. Yüksek sıcaklıklarda akma dayanımı (SMYS) düşürülür.</span>
+      </div>
+
       <!-- Machine Mandrel Presence -->
       <div class="form-group">
         <label class="checkbox-container">
@@ -325,14 +362,23 @@
         <span class="field-helper">NPS 12" ve üzeri için ovalleşmeyi ve ondülasyonu engellemek üzere zorunludur.</span>
       </div>
 
-      <!-- Girth Weld in Bend Checkbox (ASME B31.8 Md. 841.2.3(a)(5)) -->
+      <!-- Girth Weld in Bend Checkbox & Location (ASME B31.8 Md. 841.2.3(a)(5)) -->
       <div class="form-group">
         <label class="checkbox-container">
           <input type="checkbox" id="chkGirthWeld">
           <span class="checkmark"></span>
-          <span class="checkbox-label">Bükümde Çevresel Alın Kaynağı (Girth Weld) Var</span>
+          <span class="checkbox-label">Boru Gövdesinde Çevresel Alın Kaynağı (Girth Weld) Var</span>
         </label>
-        <span class="field-helper">İşaretlenirse Md. 841.2.3(a)(5) gereği büküm sonrası 100% Radyografik Muayene (RT) zorunlu olur.</span>
+        <span class="field-helper">Çift boru (double-joint) veya ekli boru bükümünde Md. 841.2.3(a)(5) güvenlik kontrolü.</span>
+      </div>
+
+      <div class="form-group" id="groupGirthWeldDist" style="display: none;">
+        <label for="inpGirthWeldDist" class="field-label">Alın Kaynağı Mesafesi (Boru Başından) [m]</label>
+        <div class="input-unit-group">
+          <input type="number" id="inpGirthWeldDist" class="form-input" min="0.1" max="30" step="0.1" value="6.0">
+          <span class="unit-tag">m</span>
+        </div>
+        <div id="girthWeldStatusAlert" class="field-helper" style="margin-top: 6px; font-weight: 600; font-size: 0.8rem; line-height: 1.4;"></div>
       </div>
 
       <!-- ŞANTİYE VE BORU İZLENEBİLİRLİK BİLGİLERİ -->
@@ -453,7 +499,7 @@
           </div>
           <div class="vis-toolbar">
             <span class="toolbar-info" id="visInfoLabel">Şematik Vektör Analizi • Canlı Güncelleme</span>
-            <button class="btn btn-sm btn-outline" id="btnResetView" title="Görünümü Sıfırla" style="display:none;">
+            <button class="btn btn-sm btn-outline" id="btnResetView" title="Görünümü Sıfırla / Ortala">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
               Ortala
             </button>
@@ -497,6 +543,35 @@
               <!-- Dynamic 2D SVG Elements will be rendered by app.js -->
               <g id="svgDynamicGroup"></g>
             </svg>
+
+            <!-- 2D View Zoom & Pan Controls Overlay -->
+            <div class="controls-2d-overlay" id="controls2DOverlay">
+              <div class="controls-2d-row">
+                <button class="btn-2d-control" id="btn2dZoomIn" title="Yakınlaştır (Mouse tekerleği ile de yapılabilir)">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                  <span>+</span>
+                </button>
+                <button class="btn-2d-control" id="btn2dZoomOut" title="Uzaklaştır">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                  <span>−</span>
+                </button>
+                <span class="badge-zoom-2d" id="badgeZoom2D" title="Mevcut Yakınlaştırma Oranı">%100</span>
+              </div>
+              <button class="btn-2d-control" id="btn2dFocusArc" title="Büküm Yayı ve Paso İstasyonlarına Odaklan">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                <span>Yaya Odaklan</span>
+              </button>
+              <button class="btn-2d-control" id="btn2dReset" title="Görünümü Sıfırla (Boru Boyunun Tamamı)">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                <span>Sıfırla</span>
+              </button>
+            </div>
+
+            <!-- Hint overlay for 2D pan/zoom -->
+            <div class="hint-2d-overlay" id="hint2DOverlay">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg>
+              <span>Kaydır: Sürükle • Yakınlaştır: Tekerlek / Çift Tıkla</span>
+            </div>
 
             <!-- 2D Legend Overlay -->
             <div class="legend-overlay">
@@ -551,6 +626,19 @@
             <div class="pull-summary-pill" id="pullSummaryPill">
               Toplam 14 Adım (Paso) • ~0.77° / Adım
             </div>
+            <div class="operator-nav-strip" id="operatorNavStrip" title="Adım Adım Büküm İstasyonu Denetimi">
+              <button class="btn btn-sm btn-outline btn-step-nav" id="btnPrevPull" title="Önceki Pasoyu Seç / İncele (Klavye Sol Ok)">◀</button>
+              <button class="active-pull-badge-btn" id="badgeActivePull" title="Seçimi Sıfırlamak İçin Tıklayın">Tüm Pasolar</button>
+              <button class="btn btn-sm btn-outline btn-step-nav" id="btnNextPull" title="Sonraki Pasoyu Seç / İncele (Klavye Sağ Ok)">▶</button>
+            </div>
+            <button class="btn btn-sm btn-outline btn-export" id="btnExportCSV" title="Paso tablosunu Excel uyumlu CSV olarak indir">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              <span>Excel / CSV</span>
+            </button>
+            <button class="btn btn-sm btn-outline btn-export" id="btnExportJSON" title="Büküm verilerini JSON formatında indir">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              <span>JSON</span>
+            </button>
             <button class="btn btn-sm btn-outline" id="btnTogglePulls" aria-expanded="true" aria-controls="pullsWrap">Gizle</button>
           </div>
         </div>
@@ -703,6 +791,36 @@
             <div class="method2-caption">Şematik (ölçeksiz): 1D boylu yaydaki sapma = °/D eğrilik hızı</div>
           </div>
         </div>
+
+        <!-- Safety Card: ASME B31.8 Md. 833 / B31.4 Md. 402.3 Combined Stress & Von Mises -->
+        <div class="matrix-card">
+          <div class="matrix-card-header">
+            <h3>Bileşik Gerilme & Von Mises Tahkiki (ASME 833 / 402.3)</h3>
+            <span class="badge-pill pass" id="badgeCombinedStressMatrix">PASS</span>
+          </div>
+          <ul class="matrix-list">
+            <li>
+              <span>Çevresel Gerilme (S<sub>h</sub> = P·D/2t):</span>
+              <strong id="matValHoopStress">242.8 MPa (%50.1 SMYS)</strong>
+            </li>
+            <li>
+              <span>Boyuna Gerilme (S<sub>L</sub> = ν·S<sub>h</sub> + S<sub>T</sub> + S<sub>b</sub>):</span>
+              <strong id="matValLongStress">185.4 MPa</strong>
+            </li>
+            <li>
+              <span>Von Mises Eşdeğer Gerilmesi (S<sub>eq</sub>):</span>
+              <strong id="matValVonMises" class="text-primary">228.4 MPa</strong>
+            </li>
+            <li>
+              <span>İzin Verilen Azami Gerilme (0.90 × SMYS × T):</span>
+              <strong id="matValAllowCombined">≤ 436.5 MPa</strong>
+            </li>
+            <li>
+              <span>Kullanım Oranı / Emniyet:</span>
+              <strong id="matValStressRatio" class="text-success">%52.3 (KABUL)</strong>
+            </li>
+          </ul>
+        </div>
       </div>
 
     </section>
@@ -760,6 +878,12 @@
           <td id="prtBendType">Overbend (Tepe Bükümü)</td>
           <td class="prt-label">Dikiş Saat Konumu:</td>
           <td id="prtClockPos">Saat 3:00 (Nötr Eksen - KABUL)</td>
+        </tr>
+        <tr>
+          <td class="prt-label">Birim / Toplam Boru Ağırlığı:</td>
+          <td id="prtPipeWeight">317.4 kg/m — 3.81 Ton (3,809 kg)</td>
+          <td class="prt-label">Rigging Sapan Yükü (Statik):</td>
+          <td id="prtRiggingLoad">~1.90 Ton (Min. Sapan SWL: 2.38 Ton)</td>
         </tr>
       </tbody>
     </table>
@@ -831,14 +955,36 @@
           <td class="prt-label">Bükümde Çevresel Alın Kaynağı (RT):</td>
           <td id="prtGirthWeldStatus">Alın Kaynağı Yok (RT Gerekmez)</td>
         </tr>
+        <tr>
+          <td class="prt-label">Bileşik Gerilme & Von Mises (ASME 833):</td>
+          <td id="prtCombinedStress" colspan="3">Von Mises: 228.4 MPa (Limit: ≤ 436.5 MPa / %90 SMYS) - <strong>KABUL (%52.3)</strong></td>
+        </tr>
       </tbody>
     </table>
+
+    <!-- 2D Pipe Bend Geometry Schematic (Official QC Vector Drawing) -->
+    <div class="print-sketch-card">
+      <div class="print-th-section">4. BORU BÜKÜM GEOMETRİSİ VE TEKNİK ŞEMA (2D SCHEMATIC PROFILE)</div>
+      <div class="print-sketch-wrap">
+        <svg id="svgPrintBend2D" viewBox="0 0 1000 320" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <marker id="arrowPrintStart" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 10 1 L 2 5 L 10 9 z" fill="#334155" />
+            </marker>
+            <marker id="arrowPrintEnd" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M 0 1 L 8 5 L 0 9 z" fill="#334155" />
+            </marker>
+          </defs>
+          <g id="svgPrintDynamicGroup"></g>
+        </svg>
+      </div>
+    </div>
 
     <!-- Hydraulic Pull Steps Table (populated by updatePrintableCard) -->
     <table class="print-table" id="prtPullsTable">
       <thead>
         <tr>
-          <th colspan="6" class="print-th-section" id="prtPullsHead">4. HİDROLİK BÜKÜM ADIMLARI (PASO / PULL TABLOSU)</th>
+          <th colspan="6" class="print-th-section" id="prtPullsHead">5. HİDROLİK BÜKÜM ADIMLARI (PASO / PULL TABLOSU)</th>
         </tr>
         <tr>
           <th scope="col">Paso #</th>
@@ -869,6 +1015,110 @@
         <div class="sig-title">İŞVEREN / ÜÇÜNCÜ TARAF (TPI)</div>
         <div class="sig-name">Ad Soyad: ................................</div>
         <div class="sig-date">Tarih / İmza: .........................</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOPOGRAPHIC SLOPE & ELEVATION DEFLECTION ANGLE CALCULATOR MODAL -->
+  <div class="modal-backdrop" id="slopeModal" hidden>
+    <div class="modal-card slope-modal-card" role="dialog" aria-modal="true" aria-labelledby="slopeModalTitle">
+      <div class="modal-header-flex">
+        <h2 id="slopeModalTitle">Topografik Eğim & Kot Farkından Büküm Açısı Hesabı</h2>
+        <button type="button" class="btn-close-modal" id="btnCloseSlopeModalX" aria-label="Kapat">&times;</button>
+      </div>
+      <p class="modal-subtitle">Hendek giriş/çıkış eğimleri veya profil nivelman kotlarından net sapma açısını (θ) ve büküm tipini (Overbend/Sagbend) belirleyin.</p>
+
+      <!-- Calculation Method Tabs -->
+      <div class="slope-method-tabs" role="tablist">
+        <button type="button" class="slope-tab-btn active" id="tabSlopePercent" role="tab" aria-selected="true">Yüzde (%) / Derece (°) Eğim</button>
+        <button type="button" class="slope-tab-btn" id="tabSlopeElevation" role="tab" aria-selected="false">İstasyon & Kot (KP - Z)</button>
+      </div>
+
+      <!-- Mode 1: Slopes (% or deg) -->
+      <div class="slope-panel" id="panelSlopePercent">
+        <div class="form-row">
+          <div class="form-group col-6">
+            <label for="inpSlope1" class="field-label">Giriş Hendek Eğimi (S<sub>1</sub>)</label>
+            <div class="input-with-unit">
+              <input type="number" id="inpSlope1" class="form-input" value="10.0" step="0.1" placeholder="örn: +10.0">
+              <select id="selSlopeUnit" class="form-select select-unit">
+                <option value="percent" selected>% (Yüzde)</option>
+                <option value="degree">° (Derece)</option>
+              </select>
+            </div>
+            <span class="field-helper">Yukarı tırmanış için (+), iniş için (-)</span>
+          </div>
+          <div class="form-group col-6">
+            <label for="inpSlope2" class="field-label">Çıkış Hendek Eğimi (S<sub>2</sub>)</label>
+            <div class="input-with-unit">
+              <input type="number" id="inpSlope2" class="form-input" value="-8.0" step="0.1" placeholder="örn: -8.0">
+            </div>
+            <span class="field-helper">Büküm noktasından sonraki devam eğimi</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mode 2: Station (KP) & Elevation (Z) -->
+      <div class="slope-panel" id="panelSlopeElevation" style="display:none;">
+        <div class="profile-stations-grid">
+          <div class="station-block">
+            <strong>1. Giriş Noktası</strong>
+            <div class="form-group">
+              <label for="inpElevKp1" class="field-label">İstasyon (KP<sub>1</sub>) [m]</label>
+              <input type="number" id="inpElevKp1" class="form-input" value="100.0" step="0.5">
+            </div>
+            <div class="form-group">
+              <label for="inpElevZ1" class="field-label">Kot (Z<sub>1</sub>) [m]</label>
+              <input type="number" id="inpElevZ1" class="form-input" value="120.0" step="0.1">
+            </div>
+          </div>
+          <div class="station-block highlight-station">
+            <strong>2. Büküm Noktası (PVI)</strong>
+            <div class="form-group">
+              <label for="inpElevKp2" class="field-label">İstasyon (KP<sub>2</sub>) [m]</label>
+              <input type="number" id="inpElevKp2" class="form-input" value="130.0" step="0.5">
+            </div>
+            <div class="form-group">
+              <label for="inpElevZ2" class="field-label">Kot (Z<sub>2</sub>) [m]</label>
+              <input type="number" id="inpElevZ2" class="form-input" value="124.5" step="0.1">
+            </div>
+          </div>
+          <div class="station-block">
+            <strong>3. Çıkış Noktası</strong>
+            <div class="form-group">
+              <label for="inpElevKp3" class="field-label">İstasyon (KP<sub>3</sub>) [m]</label>
+              <input type="number" id="inpElevKp3" class="form-input" value="160.0" step="0.5">
+            </div>
+            <div class="form-group">
+              <label for="inpElevZ3" class="field-label">Kot (Z<sub>3</sub>) [m]</label>
+              <input type="number" id="inpElevZ3" class="form-input" value="121.2" step="0.1">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Calculation Result Card -->
+      <div class="slope-result-box" id="slopeResultBox">
+        <div class="slope-result-main">
+          <div class="slope-res-col">
+            <span class="slope-res-title">Hesaplanan Büküm Açısı (θ<sub>target</sub>)</span>
+            <span class="slope-res-value" id="valCalculatedSlopeAngle">10.29°</span>
+          </div>
+          <div class="slope-res-col">
+            <span class="slope-res-title">Otomatik Belirlenen Büküm Tipi</span>
+            <span class="badge-mini pass" id="badgeCalculatedBendType">OVERBEND (Tepe Bükümü)</span>
+          </div>
+        </div>
+        <div class="slope-res-desc" id="descCalculatedSlope">
+          Giriş eğimi: +5.71° • Çıkış eğimi: -4.57° • Eğim farkı tepe (konveks) oluşturmaktadır.
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" id="btnCloseSlopeModal">Vazgeç</button>
+        <button type="button" class="btn btn-primary" id="btnApplyCalculatedSlope">
+          <span>✓ Hesaplanan Açıyı Modele Aktar</span>
+        </button>
       </div>
     </div>
   </div>

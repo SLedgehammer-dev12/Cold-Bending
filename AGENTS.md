@@ -1,7 +1,7 @@
 # ColdBend Pro — Agent Instructions
 
 Pipeline cold field bend engineering app (`app.js`, `index.html`, `style.css`, `lib/`).
-Compliant with ASME B31.8 Md. 841.2.3, ASME B31.4 Md. 406.2.1, BOTAŞ/TANAP specs.
+Compliant with ASME B31.8 Md. 841.2.3, ASME B31.4 Md. 406.2.1, employer specs.
 
 ## Strict loop (mandatory)
 

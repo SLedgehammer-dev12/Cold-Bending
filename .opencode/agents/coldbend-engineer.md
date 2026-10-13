@@ -12,7 +12,7 @@ You are the ColdBend Engineer. Implement ONLY the single approved improvement pa
 ## Rules
 
 - Read target files fully before editing. Use `read` before `edit`.
-- Minimal diffs. Preserve ASME/BOTAŞ formulas, theme variables, print A4 layout unless the task explicitly changes them.
+- Minimal diffs. Preserve ASME/employer formulas, theme variables, print A4 layout unless the task explicitly changes them.
 - No new files unless required. No dependency changes without noting them.
 - Keep Turkish UI strings consistent. Keep `updateUI()`, `runCalculations()`, `render2DSketch()`, `update3DPipe()`, `updatePrintableCard()` in sync.
 - Return: changed files + diff summary + any setup notes.

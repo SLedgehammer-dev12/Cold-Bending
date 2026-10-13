@@ -1,6 +1,6 @@
 ---
 name: asme-cold-bend
-description: Use when checking ColdBend Pro ASME B31.8 841.2.3, ASME B31.4 406.2.1, BOTAS TANAP formulas, thinning ovality springback pulls ripple seam clock calculations in app.js.
+description: Use when checking ColdBend Pro ASME B31.8 841.2.3, ASME B31.4 406.2.1, employer-spec formulas, thinning ovality springback pulls ripple seam clock calculations in app.js.
 ---
 
 # ASME Cold Bend Domain
@@ -11,7 +11,7 @@ Reference for ColdBend Pro `runCalculations()` in `app.js`.
 
 - ASME B31.8 Md.841.2.3 Table 841.2.3-1 radius multipliers + Method 2 deflection rate per OD; ripple limit 1.0% OD (a)(7); girth weld in bend → 100% RT (a)(5).
 - ASME B31.4 Md.406.2.1 liquid lines radius rules.
-- BOTAS/TANAP strict: NPS>24 → 40D; ovality ≤2.5% for ILI pig passage.
+- Employer strict: NPS>24 → 40D; ovality ≤2.5% for ILI pig passage.
 
 ## Formulas (must not regress)
 

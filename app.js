@@ -5,7 +5,7 @@
 
 // Single source of truth for the app version
 // (must match UI badge, package.json, electron shell, release tag).
-const APP_VERSION = '2.5.0';
+const APP_VERSION = '2.6.0';
 const UPDATE_API_URL = 'https://api.github.com/repos/SLedgehammer-dev12/Cold-Bending/releases/latest';
 const UPDATE_CACHE_KEY = 'coldbend_update_cache';
 const UPDATE_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // silent auto-check at most once a day
@@ -25,11 +25,14 @@ const state = {
   seamType: 'SAWH',      // SAWH, SAWL, SMLS
   seamAngle: 0,          // Angle from neutral axis (-90 to +90 deg)
   targetAngle: 10.0,     // Route deflection target angle in degrees
-  manualPulls: null,      // Manual pull count override (2-60); null = automatic  radiusMultiplier: 40,  // Bend radius multiplier (R = k * D)
+  manualPulls: null,     // Manual pull count override (2-60); null = automatic
+  radiusMultiplier: 40,  // Bend radius multiplier (R = k * D)
   designPressure: 75.0,  // Bar
   designFactor: 0.72,    // Class 1 / ASME
+  designTemp: 20.0,      // Design Operating Temperature in Celsius (-20 to +250 °C)
   useMandrel: true,      // Internal hydraulic mandrel active
   girthWeldInBend: false,// Circumferential weld in bend section (Md. 841.2.3-a-5)
+  girthWeldDist: 6.0,    // Distance of girth weld from front of pipe in meters
   showDimensions: true,  // Toggle dimension labels in 2D
   mandrelVisible3D: true,
   seamVisible3D: true,
@@ -65,6 +68,9 @@ const dom = {
   inpCorrosion: document.getElementById('inpCorrosion'),
   inpPipeLength: document.getElementById('inpPipeLength'),
   rngPipeLength: document.getElementById('rngPipeLength'),
+  badgePipeWeightUnit: document.getElementById('badgePipeWeightUnit'),
+  valTotalPipeWeight: document.getElementById('valTotalPipeWeight'),
+  valRiggingSlingLoad: document.getElementById('valRiggingSlingLoad'),
   selGrade: document.getElementById('selGrade'),
   
   // Seam & Clock Position
@@ -81,7 +87,28 @@ const dom = {
   selBendType: document.getElementById('selBendType'),
   inpTargetAngle: document.getElementById('inpTargetAngle'),
   rngTargetAngle: document.getElementById('rngTargetAngle'),
+  btnOpenSlopeCalc: document.getElementById('btnOpenSlopeCalc'),
   badgeMaxAngleInfo: document.getElementById('badgeMaxAngleInfo'),
+  slopeModal: document.getElementById('slopeModal'),
+  btnCloseSlopeModal: document.getElementById('btnCloseSlopeModal'),
+  btnCloseSlopeModalX: document.getElementById('btnCloseSlopeModalX'),
+  tabSlopePercent: document.getElementById('tabSlopePercent'),
+  tabSlopeElevation: document.getElementById('tabSlopeElevation'),
+  panelSlopePercent: document.getElementById('panelSlopePercent'),
+  panelSlopeElevation: document.getElementById('panelSlopeElevation'),
+  inpSlope1: document.getElementById('inpSlope1'),
+  inpSlope2: document.getElementById('inpSlope2'),
+  selSlopeUnit: document.getElementById('selSlopeUnit'),
+  inpElevKp1: document.getElementById('inpElevKp1'),
+  inpElevZ1: document.getElementById('inpElevZ1'),
+  inpElevKp2: document.getElementById('inpElevKp2'),
+  inpElevZ2: document.getElementById('inpElevZ2'),
+  inpElevKp3: document.getElementById('inpElevKp3'),
+  inpElevZ3: document.getElementById('inpElevZ3'),
+  valCalculatedSlopeAngle: document.getElementById('valCalculatedSlopeAngle'),
+  badgeCalculatedBendType: document.getElementById('badgeCalculatedBendType'),
+  descCalculatedSlope: document.getElementById('descCalculatedSlope'),
+  btnApplyCalculatedSlope: document.getElementById('btnApplyCalculatedSlope'),
   selRadiusMultiplier: document.getElementById('selRadiusMultiplier'),
   inpCalculatedRadius: document.getElementById('inpCalculatedRadius'),
   inpManualPulls: document.getElementById('inpManualPulls'),
@@ -89,10 +116,17 @@ const dom = {
   inpCustomRadius: document.getElementById('inpCustomRadius'),
   inpTangent1: document.getElementById('inpTangent1'),
   inpTangent2: document.getElementById('inpTangent2'),
+  helperTangentClamping: document.getElementById('helperTangentClamping'),
   inpDesignPressure: document.getElementById('inpDesignPressure'),
   selDesignFactor: document.getElementById('selDesignFactor'),
+  inpDesignTemp: document.getElementById('inpDesignTemp'),
+  badgeTempDerating: document.getElementById('badgeTempDerating'),
+  helperTempDerating: document.getElementById('helperTempDerating'),
   chkUseMandrel: document.getElementById('chkUseMandrel'),
   chkGirthWeld: document.getElementById('chkGirthWeld'),
+  groupGirthWeldDist: document.getElementById('groupGirthWeldDist'),
+  inpGirthWeldDist: document.getElementById('inpGirthWeldDist'),
+  girthWeldStatusAlert: document.getElementById('girthWeldStatusAlert'),
 
   // Traceability Inputs
   inpProjectName: document.getElementById('inpProjectName'),  inpLineSection: document.getElementById('inpLineSection'),
@@ -148,10 +182,21 @@ const dom = {
   matValRippleHeight: document.getElementById('matValRippleHeight'),
   matValRippleLimit: document.getElementById('matValRippleLimit'),
   badgeRippleMatrix: document.getElementById('badgeRippleMatrix'),
+  badgeCombinedStressMatrix: document.getElementById('badgeCombinedStressMatrix'),
+  matValHoopStress: document.getElementById('matValHoopStress'),
+  matValLongStress: document.getElementById('matValLongStress'),
+  matValVonMises: document.getElementById('matValVonMises'),
+  matValAllowCombined: document.getElementById('matValAllowCombined'),
+  matValStressRatio: document.getElementById('matValStressRatio'),
   
   // Pulls Table
   tbodyPulls: document.getElementById('tbodyPulls'),
   pullSummaryPill: document.getElementById('pullSummaryPill'),
+  btnPrevPull: document.getElementById('btnPrevPull'),
+  btnNextPull: document.getElementById('btnNextPull'),
+  badgeActivePull: document.getElementById('badgeActivePull'),
+  btnExportCSV: document.getElementById('btnExportCSV'),
+  btnExportJSON: document.getElementById('btnExportJSON'),
   btnTogglePulls: document.getElementById('btnTogglePulls'),
   pullsWrap: document.getElementById('pullsWrap'),
   
@@ -165,10 +210,19 @@ const dom = {
   view2D: document.getElementById('view2D'),
   view3D: document.getElementById('view3D'),
   svgDynamicGroup: document.getElementById('svgDynamicGroup'),
+  svgPrintDynamicGroup: document.getElementById('svgPrintDynamicGroup'),
   btnResetDefaults: document.getElementById('btnResetDefaults'),
   btnPrintCard: document.getElementById('btnPrintCard'),
   btnResetView: document.getElementById('btnResetView'),
   btnToggleLabels: document.getElementById('btnToggleLabels'),
+  
+  // 2D Controls
+  svgBend2D: document.getElementById('svgBend2D'),
+  btn2dZoomIn: document.getElementById('btn2dZoomIn'),
+  btn2dZoomOut: document.getElementById('btn2dZoomOut'),
+  btn2dFocusArc: document.getElementById('btn2dFocusArc'),
+  btn2dReset: document.getElementById('btn2dReset'),
+  badgeZoom2D: document.getElementById('badgeZoom2D'),
   
   // 3D Controls
   container3D: document.getElementById('container3D'),
@@ -203,6 +257,8 @@ const dom = {
   prtPipeOD: document.getElementById('prtPipeOD'),
   prtSteelGrade: document.getElementById('prtSteelGrade'),
   prtNomWT: document.getElementById('prtNomWT'),
+  prtPipeWeight: document.getElementById('prtPipeWeight'),
+  prtRiggingLoad: document.getElementById('prtRiggingLoad'),
   prtSeam: document.getElementById('prtSeam'),
   prtDesignPress: document.getElementById('prtDesignPress'),
   prtRCalculated: document.getElementById('prtRCalculated'),
@@ -221,6 +277,7 @@ const dom = {
   prtRippleStatus: document.getElementById('prtRippleStatus'),
   prtSeamStatus: document.getElementById('prtSeamStatus'),
   prtGirthWeldStatus: document.getElementById('prtGirthWeldStatus'),
+  prtCombinedStress: document.getElementById('prtCombinedStress'),
   prtPullsBody: document.getElementById('prtPullsBody'),
   prtPullsHead: document.getElementById('prtPullsHead'),
 
@@ -339,26 +396,35 @@ const PRESETS = {
    Engineering Calculation Engine
    ========================================================================== */
 
+/**
+ * Helper to determine nominal pipe size category in inches (ASME B36.10M / API 5L)
+ * Pipe sizes NPS 12 and smaller have outer diameter up to 12.75" (323.85 mm).
+ * Pipe sizes NPS 14 and larger have outer diameter equal to nominal size.
+ */
+function getNominalNpsInches(odMm) {
+  if (odMm <= 325.0) return 12.0; // NPS 12 (DN 300 / OD 323.9 mm) and smaller
+  return Math.round((odMm / 25.4) * 10) / 10;
+}
+
 function calculateMinimumBendRadiusMultiplier(standard, odMm) {
-  // odMm in mm
-  const npsInches = odMm / 25.4;
+  const npsInches = getNominalNpsInches(odMm);
   
   if (standard === 'ASME_B31_8') {
-    // ASME B31.8 Table 841.2.3-1
-    if (npsInches < 12) return 18;
+    // ASME B31.8 Table 841.2.3-1 (NPS 12 and smaller: 18D)
+    if (npsInches <= 12) return 18;
     if (npsInches <= 14) return 21;
     if (npsInches <= 16) return 24;
     if (npsInches <= 18) return 27;
     return 30; // NPS 20 and larger
   } else if (standard === 'ASME_B31_4') {
-    // ASME B31.4 Section 406.2.1
+    // ASME B31.4 Section 406.2.1 (NPS 12 and smaller: 18D)
     if (npsInches <= 12) return 18;
     if (npsInches <= 14) return 21;
     if (npsInches <= 16) return 24;
     if (npsInches <= 18) return 27;
     return 30;
   } else if (standard === 'BOTAS_SPEC') {
-    // Employer strict specification
+    // Employer strict specification (NPS <= 12: 18D, NPS <= 16: 24D, NPS <= 24: 30D, > 24: 40D)
     if (npsInches <= 12) return 18;
     if (npsInches <= 16) return 24;
     if (npsInches <= 24) return 30;
@@ -460,6 +526,30 @@ function validateClockSafety(bendType, clockPos, customAngle) {
   return { isSafe, badgeText, badgeClass, boxClass, lblClock, desc, angleDeg };
 }
 
+/* ==========================================================================
+   Temperature Derating Factor Engine (ASME B31.8 Table 841.1.8-1 & B31.4)
+   ========================================================================== */
+function getTemperatureDeratingFactor(tempC) {
+  if (tempC <= 121.1) return 1.000;
+  if (tempC >= 232.2) return 0.867;
+  const points = [
+    { t: 121.1, f: 1.000 },
+    { t: 148.9, f: 0.967 },
+    { t: 176.7, f: 0.933 },
+    { t: 204.4, f: 0.900 },
+    { t: 232.2, f: 0.867 }
+  ];
+  for (let i = 0; i < points.length - 1; i++) {
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    if (tempC >= p1.t && tempC <= p2.t) {
+      const ratio = (tempC - p1.t) / (p2.t - p1.t);
+      return p1.f + ratio * (p2.f - p1.f);
+    }
+  }
+  return 1.000;
+}
+
 function runCalculations() {
   const odM = state.od / 1000; // in meters
   const minMult = calculateMinimumBendRadiusMultiplier(state.standard, state.od);
@@ -499,11 +589,36 @@ function runCalculations() {
   const S_mpa = state.smys;
   const F = state.designFactor;
   const E_weld = 1.0; // SAW / HFW high quality
-  const T_temp = 1.0;
+  const T_temp = getTemperatureDeratingFactor(state.designTemp);
   const t_min_design = (P_mpa * D) / (2 * S_mpa * F * E_weld * T_temp) + state.ca;
   const isWallThinningSafe = t_extrados >= t_min_design;
   const wallMarginMm = t_extrados - t_min_design;
   const wallMarginPercent = (wallMarginMm / t_min_design) * 100;
+  
+  // Combined Stress & Von Mises Analysis (ASME B31.8 Section 833 & ASME B31.4 Section 402.3)
+  const hoopStressMpa = (P_mpa * D) / (2 * Math.max(1, t_extrados));
+  const effectiveSMYS = S_mpa * T_temp;
+  const hoopStressPercentSmys = (hoopStressMpa / effectiveSMYS) * 100;
+
+  // Longitudinal Stress S_L: Poisson + Thermal + Elastic bending residual
+  const nu = 0.30;
+  const longStressPressure = nu * hoopStressMpa;
+  const alphaSteel = 1.17e-5;
+  const deltaT = state.designTemp - 15.0;
+  const longStressThermal = -207000 * alphaSteel * deltaT;
+  const eps_bend_fiber = (odM / 2) / Math.max(1e-9, r_bend_m);
+  const longStressBending = Math.min(207000 * eps_bend_fiber * 0.12, effectiveSMYS * 0.35);
+  const longStressMpa = longStressPressure + longStressThermal + longStressBending;
+
+  // Von Mises Equivalent Stress: S_eq = sqrt(S_h^2 - S_h*S_L + S_L^2)
+  const vonMisesStressMpa = Math.sqrt(
+    Math.max(0, hoopStressMpa * hoopStressMpa - hoopStressMpa * longStressMpa + longStressMpa * longStressMpa)
+  );
+
+  // Allowable Combined Stress Limit: 0.90 * SMYS * T (ASME B31.8 Section 833.4 / B31.4 Sec 402.3.2)
+  const allowableCombinedStressMpa = 0.90 * effectiveSMYS;
+  const combinedStressRatioPercent = (vonMisesStressMpa / allowableCombinedStressMpa) * 100;
+  const isCombinedStressCompliant = vonMisesStressMpa <= allowableCombinedStressMpa;
   
   // Ovality Calculation
   // Empirical natural ovality without mandrel: (1/16) * (D / t) * (D / R) * 100%
@@ -553,6 +668,27 @@ function runCalculations() {
   const pullShiftM = isCentered ? Math.max(0, (l_arc_m - l_bent_m) / 2) : 0;
   const pullStartM = state.tangent1 + pullShiftM;
   const l_t2_actual = Math.max(0, state.length - pullStartM - l_bent_m);
+
+  // --- Büküm Makinesi Kalıp & Sıkma Pimi Minimum Tutma Payı Kontrolü (CRC-Evans / DMI / BOTAŞ) ---
+  const minClampingLenM = Math.max(1.2 * odM, 1.50);
+  const isFrontClampingSafe = pullStartM >= (minClampingLenM - 0.02);
+  const isRearClampingSafe = l_t2_actual >= (minClampingLenM - 0.02);
+  const isClampingSafe = isFrontClampingSafe && isRearClampingSafe;
+
+  let clampingStatusText = 'UYGUN (Kalıp ve Sıkma Pimi Emniyetli)';
+  let clampingWarningText = '';
+  if (!isFrontClampingSafe && !isRearClampingSafe) {
+    clampingStatusText = `YETERSİZ: Hem Ön (${pullStartM.toFixed(2)}m) hem Arka (${l_t2_actual.toFixed(2)}m) teğet, makine asgari sıkma boyunun (${minClampingLenM.toFixed(2)}m) altındadır! Kaynak ağzı (bevel) ezilme riski!`;
+    clampingWarningText = `Ön (${pullStartM.toFixed(2)}m) ve Arka (${l_t2_actual.toFixed(2)}m) < Min. ${minClampingLenM.toFixed(2)} m!`;
+  } else if (!isFrontClampingSafe) {
+    clampingStatusText = `YETERSİZ: Ön teğet (${pullStartM.toFixed(2)}m) makine asgari sıkma boyunun (${minClampingLenM.toFixed(2)}m) altındadır! Bevel ezilme riski!`;
+    clampingWarningText = `Ön teğet (${pullStartM.toFixed(2)}m) < Min. ${minClampingLenM.toFixed(2)} m!`;
+  } else if (!isRearClampingSafe) {
+    clampingStatusText = `YETERSİZ: Arka teğet (${l_t2_actual.toFixed(2)}m) makine asgari sıkma boyunun (${minClampingLenM.toFixed(2)}m) altındadır!`;
+    clampingWarningText = `Arka teğet (${l_t2_actual.toFixed(2)}m) < Min. ${minClampingLenM.toFixed(2)} m!`;
+  } else {
+    clampingWarningText = `Min. ${minClampingLenM.toFixed(2)} m düzlük sağlandı (Ön: ${pullStartM.toFixed(2)} m, Arka: ${l_t2_actual.toFixed(2)} m)`;
+  }
   
   const pullStepPitch = l_bent_m / numPulls;
   const pullAnglePerStep = machineAngleDeg / numPulls;
@@ -560,7 +696,7 @@ function runCalculations() {
   const isPullAngleCompliant = pullAnglePerStep <= (maxAllowPullAngle + 0.05);
   
   // --- ASME B31.8 Tablo 841.2.3-1 Yöntem 2 (Deflection Rate per OD) ---
-  const npsInches = state.od / 25.4;
+  const npsInches = getNominalNpsInches(state.od);
   let asmeMethod2Limit = 1.9; // NPS 20 and larger
   if (npsInches <= 12) asmeMethod2Limit = 3.2;
   else if (npsInches <= 14) asmeMethod2Limit = 2.7;
@@ -581,6 +717,50 @@ function runCalculations() {
   // --- Global feasibility: machine-angle arc must fit into available arc ---
   const isGeometryFeasible = l_bent_m <= l_arc_m + 1e-6;
 
+  // --- ASME B31.8 Md. 841.2.3(a)(5) Çevresel Alın Kaynağı (Girth Weld) Analizi ---
+  const pullEndM = pullStartM + l_bent_m;
+  let isGwOnPipe = true;
+  let isGwInArc = false;
+  let isGwInFrontTangent = false;
+  let isGwInRearTangent = false;
+  let girthWeldStatusText = 'Alın Kaynağı Yok (RT Gerekmez)';
+  let girthWeldBadge = 'YOK';
+  let girthWeldClass = 'pass';
+
+  if (state.girthWeldInBend) {
+    const gwDist = state.girthWeldDist;
+    isGwOnPipe = gwDist > 0 && gwDist < state.length;
+    if (!isGwOnPipe) {
+      girthWeldStatusText = `Hatalı Konum: Alın kaynağı (X=${gwDist.toFixed(2)}m) boru boyu [0 - ${state.length.toFixed(2)}m] dışındadır!`;
+      girthWeldBadge = 'HATALI KONUM';
+      girthWeldClass = 'fail';
+    } else if (gwDist >= (pullStartM - 0.02) && gwDist <= (pullEndM + 0.02)) {
+      isGwInArc = true;
+      girthWeldStatusText = `DİKKAT: Alın kaynağı (X=${gwDist.toFixed(2)}m) BÜKÜM YAYI [${pullStartM.toFixed(2)}m - ${pullEndM.toFixed(2)}m] İÇİNDEDİR. ASME B31.8 Md. 841.2.3(a)(5) gereği büküm sonrası %100 Radyografik Muayene (RT) ZORUNLUDUR!`;
+      girthWeldBadge = '%100 RT ZORUNLU';
+      girthWeldClass = 'warn';
+    } else {
+      const zoneName = gwDist < pullStartM ? `Ön Teğet [0 - ${pullStartM.toFixed(2)}m]` : `Arka Teğet [${pullEndM.toFixed(2)}m - ${state.length.toFixed(2)}m]`;
+      if (gwDist < pullStartM) isGwInFrontTangent = true;
+      else isGwInRearTangent = true;
+      girthWeldStatusText = `UYGUN: Alın kaynağı (X=${gwDist.toFixed(2)}m) ${zoneName} üzerindedir. Büküm kavisinden muaftır, standart saha RT prosedürü geçerlidir.`;
+      girthWeldBadge = 'TEĞET BÖLGEDE';
+      girthWeldClass = 'pass';
+    }
+  }
+
+  // --- Boru Ağırlığı ve Sahada Kaldırma / Rigging Yükü Hesabı (API 5L / ASME B30.20) ---
+  // API 5L / ASME B36.10M standardı çelik boru ağırlık formülü:
+  // w = 0.0246615 * (OD - WT) * WT (kg/m)
+  const weightPerMeterKg = 0.0246615 * (state.od - state.t_nom) * state.t_nom;
+  const totalPipeWeightKg = weightPerMeterKg * state.length;
+  const totalPipeWeightTon = totalPipeWeightKg / 1000;
+  // Büküm makinesine boru sürme esnasında konsol ve vinç sapanı statik taşıma yükü (yaklaşık W/2):
+  const riggingSlingLoadKg = totalPipeWeightKg / 2;
+  const riggingSlingLoadTon = riggingSlingLoadKg / 1000;
+  // ASME B30.20 / ASME P30.1 saha dinamik kaldırma faktörü DAF = 1.25 ile önerilen minimum sapan SWL:
+  const minRecommendedSlingSwlTon = riggingSlingLoadTon * 1.25;
+
   const complianceChecks = [
     { key: 'tangent', label: 'Teğetler', pass: isTangentFeasible },
     { key: 'radius', label: 'Yarıçap', pass: isRadiusCompliant },
@@ -591,7 +771,10 @@ function runCalculations() {
     { key: 'seam', label: 'Dikiş', pass: isSeamSafe },
     { key: 'pull', label: 'Paso', pass: isPullAngleCompliant },
     { key: 'method2', label: 'Yöntem 2', pass: isMethod2Compliant },
-    { key: 'ripple', label: 'Ripple', pass: isRippleCompliant }
+    { key: 'ripple', label: 'Ripple', pass: isRippleCompliant },
+    { key: 'girthWeld', label: 'Alın Kaynağı', pass: !state.girthWeldInBend || isGwOnPipe },
+    { key: 'combinedStress', label: 'Bileşik Gerilme', pass: isCombinedStressCompliant },
+    { key: 'clamping', label: 'Kalıp Sıkma Payı', pass: isClampingSafe }
   ];
   const failedChecks = complianceChecks.filter(c => !c.pass);
   const overallPass = failedChecks.length === 0;
@@ -615,6 +798,13 @@ function runCalculations() {
     isWallThinningSafe,
     wallMarginMm,
     wallMarginPercent,
+    hoopStressMpa,
+    hoopStressPercentSmys,
+    longStressMpa,
+    vonMisesStressMpa,
+    allowableCombinedStressMpa,
+    combinedStressRatioPercent,
+    isCombinedStressCompliant,
     estimatedOvality,
     isOvalityCompliant,
     deltaID_mm,
@@ -643,6 +833,27 @@ function runCalculations() {
     isGeometryFeasible,
     totalTangents,
     isTangentFeasible,
+    minClampingLenM,
+    isFrontClampingSafe,
+    isRearClampingSafe,
+    isClampingSafe,
+    clampingStatusText,
+    clampingWarningText,
+    pullEndM,
+    isGwOnPipe,
+    isGwInArc,
+    isGwInFrontTangent,
+    isGwInRearTangent,
+    girthWeldStatusText,
+    girthWeldBadge,
+    girthWeldClass,
+    weightPerMeterKg,
+    totalPipeWeightKg,
+    totalPipeWeightTon,
+    riggingSlingLoadKg,
+    riggingSlingLoadTon,
+    minRecommendedSlingSwlTon,
+    T_temp,
     complianceChecks,
     failedChecks,
     overallPass
@@ -656,6 +867,9 @@ function runCalculations() {
 function updateUI() {
   stopBendAnimation(false); // sidebar edits cancel the bend animation
   const calc = runCalculations();
+  if (selectedPullIndex !== null && selectedPullIndex > calc.numPulls) {
+    selectedPullIndex = calc.numPulls > 0 ? calc.numPulls : null;
+  }
   
   // Standard badge (+ select sync so first paint matches state)
   if (dom.selStandard) {
@@ -675,6 +889,12 @@ function updateUI() {
   // Radius calculation display
   dom.inpCalculatedRadius.value = `${calc.r_bend_m.toFixed(2)} m (${state.radiusMultiplier} D)`;
   dom.badgeMaxAngleInfo.textContent = `Max: ~${calc.theta_max_deg.toFixed(1)}°`;
+
+  // Machine Die & Clamping Pin Clearance Helper
+  if (dom.helperTangentClamping) {
+    dom.helperTangentClamping.textContent = calc.clampingWarningText;
+    dom.helperTangentClamping.className = `field-helper ${calc.isClampingSafe ? 'text-success' : 'text-danger'}`;
+  }
 
   // Global GO / NO-GO verdict banner
   if (dom.masterVerdict) {
@@ -825,6 +1045,66 @@ function updateUI() {
     dom.badgeRippleMatrix.className = `badge-pill ${isMatrix4Pass ? 'pass' : 'fail'}`;
   }
 
+  // ASME B31.8 Md. 833 / B31.4 Md. 402.3 Combined Stress & Von Mises Matrix
+  if (dom.matValHoopStress) {
+    dom.matValHoopStress.textContent = `${calc.hoopStressMpa.toFixed(1)} MPa (%${calc.hoopStressPercentSmys.toFixed(1)} SMYS)`;
+    dom.matValLongStress.textContent = `${calc.longStressMpa.toFixed(1)} MPa`;
+    dom.matValVonMises.textContent = `${calc.vonMisesStressMpa.toFixed(1)} MPa`;
+    dom.matValAllowCombined.textContent = `≤ ${calc.allowableCombinedStressMpa.toFixed(1)} MPa (%90 SMYS·T)`;
+    dom.matValStressRatio.textContent = `%${calc.combinedStressRatioPercent.toFixed(1)} (${calc.isCombinedStressCompliant ? 'KABUL' : 'LİMİT AŞIMI'})`;
+    dom.matValStressRatio.className = calc.isCombinedStressCompliant ? 'text-success' : 'text-danger';
+    if (dom.badgeCombinedStressMatrix) {
+      dom.badgeCombinedStressMatrix.textContent = calc.isCombinedStressCompliant ? 'PASS' : 'FAIL';
+      dom.badgeCombinedStressMatrix.className = `badge-pill ${calc.isCombinedStressCompliant ? 'pass' : 'fail'}`;
+    }
+  }
+
+  // Girth Weld Group & Dynamic Status
+  if (dom.chkGirthWeld) dom.chkGirthWeld.checked = state.girthWeldInBend;
+  if (dom.groupGirthWeldDist) {
+    dom.groupGirthWeldDist.style.display = state.girthWeldInBend ? 'block' : 'none';
+  }
+  if (dom.inpGirthWeldDist && document.activeElement !== dom.inpGirthWeldDist) {
+    dom.inpGirthWeldDist.value = state.girthWeldDist;
+  }
+  if (dom.girthWeldStatusAlert) {
+    if (!state.girthWeldInBend) {
+      dom.girthWeldStatusAlert.textContent = '';
+      dom.girthWeldStatusAlert.className = 'field-helper';
+    } else {
+      dom.girthWeldStatusAlert.textContent = calc.girthWeldStatusText;
+      dom.girthWeldStatusAlert.className = 'field-helper ' + (calc.isGwInArc ? 'text-warning' : (calc.isGwOnPipe ? 'text-success' : 'text-danger'));
+    }
+  }
+
+  // Pipe Weight & Rigging Safety Box Updates
+  if (dom.badgePipeWeightUnit) dom.badgePipeWeightUnit.textContent = `${calc.weightPerMeterKg.toFixed(1)} kg/m`;
+  if (dom.valTotalPipeWeight) dom.valTotalPipeWeight.textContent = `${calc.totalPipeWeightTon.toFixed(2)} Ton (${Math.round(calc.totalPipeWeightKg).toLocaleString('tr-TR')} kg)`;
+  if (dom.valRiggingSlingLoad) dom.valRiggingSlingLoad.textContent = `~${calc.riggingSlingLoadTon.toFixed(2)} Ton / Sapan`;
+
+  // Temperature Derating Factor (ASME B31.8 Tablo 841.1.8-1)
+  const T_factor = calc.T_temp;
+  if (dom.inpDesignTemp && document.activeElement !== dom.inpDesignTemp) {
+    dom.inpDesignTemp.value = state.designTemp;
+  }
+  if (dom.badgeTempDerating) {
+    if (T_factor >= 0.999) {
+      dom.badgeTempDerating.textContent = `T = 1.000 (${state.designTemp.toFixed(0)}°C • Azaltma Yok)`;
+      dom.badgeTempDerating.className = 'badge-mini pass';
+    } else {
+      dom.badgeTempDerating.textContent = `T = ${T_factor.toFixed(3)} (${state.designTemp.toFixed(0)}°C • SMYS %${((1 - T_factor) * 100).toFixed(1)} Azaltıldı)`;
+      dom.badgeTempDerating.className = 'badge-mini warn';
+    }
+  }
+  if (dom.helperTempDerating) {
+    if (state.designTemp <= 121.1) {
+      dom.helperTempDerating.textContent = `ASME B31.8 Tablo 841.1.8-1: ≤ 121°C (250°F) için T = 1.000. Tam akma dayanımı (SMYS = ${state.smys} MPa) geçerlidir.`;
+    } else {
+      const sEff = Math.round(state.smys * T_factor);
+      dom.helperTempDerating.textContent = `ASME B31.8 Tablo 841.1.8-1: ${state.designTemp.toFixed(0)}°C sıcaklıkta efektif akma dayanımı S_eff = ${sEff} MPa (${state.smys} MPa'dan düşürüldü). Gerekli t_min: ${calc.t_min_design.toFixed(2)} mm.`;
+    }
+  }
+
   // Method-2 schematic with live values
   renderMethod2Sketch(calc);
   
@@ -880,12 +1160,79 @@ function renderMethod2Sketch(calc) {
 
 /* ==========================================================================
    Fabrication Pull Steps Table Rendering (ASME Standards)
+   & Step-by-Step Operator Inspector
    ========================================================================== */
+
+let selectedPullIndex = null;
+
+function selectPull(k) {
+  const calc = runCalculations();
+  if (k === null || k === undefined || calc.numPulls <= 0) {
+    selectedPullIndex = null;
+  } else {
+    selectedPullIndex = Math.max(1, Math.min(calc.numPulls, Math.round(Number(k))));
+  }
+
+  // Update operator inspector badge and nav buttons
+  if (dom.badgeActivePull) {
+    if (selectedPullIndex !== null) {
+      dom.badgeActivePull.textContent = `Paso #${selectedPullIndex}/${calc.numPulls}`;
+      dom.badgeActivePull.classList.add('active');
+    } else {
+      dom.badgeActivePull.textContent = `Tüm Pasolar (${calc.numPulls})`;
+      dom.badgeActivePull.classList.remove('active');
+    }
+  }
+  if (dom.btnPrevPull) {
+    dom.btnPrevPull.disabled = selectedPullIndex === null || selectedPullIndex <= 1;
+  }
+  if (dom.btnNextPull) {
+    dom.btnNextPull.disabled = selectedPullIndex !== null && selectedPullIndex >= calc.numPulls;
+  }
+
+  // Highlight selected row in table and scroll into view
+  if (dom.tbodyPulls) {
+    const rows = dom.tbodyPulls.querySelectorAll('tr');
+    rows.forEach((tr) => {
+      const step = Number(tr.dataset.step);
+      if (selectedPullIndex !== null && step === selectedPullIndex) {
+        tr.classList.add('selected-pull-row');
+        tr.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      } else {
+        tr.classList.remove('selected-pull-row');
+      }
+    });
+  }
+
+  // Synchronize 2D CAD and 3D pipe models
+  render2DSketch(calc);
+  update3DPipe(calc);
+}
 
 function renderPullsTable(calc) {
   dom.tbodyPulls.innerHTML = '';
   const modeNote = `${calc.manualPullsUsed ? ' (manuel adet)' : ''}${calc.isCentered ? ' (ortalı)' : ''}`;
   dom.pullSummaryPill.textContent = `Toplam ${calc.numPulls} Paso${modeNote} • İlerleme: ${(calc.pullStepPitch * 1000).toFixed(0)} mm • ~${calc.pullAnglePerStep.toFixed(2)}°/Paso • Büküm Boyu: ${calc.l_bent_m.toFixed(2)} m (Kalan Arka Düzlük: ${calc.l_t2_actual.toFixed(2)} m)`;
+
+  if (selectedPullIndex !== null && (selectedPullIndex > calc.numPulls || calc.numPulls === 0)) {
+    selectedPullIndex = calc.numPulls > 0 ? calc.numPulls : null;
+  }
+
+  if (dom.badgeActivePull) {
+    if (selectedPullIndex !== null) {
+      dom.badgeActivePull.textContent = `Paso #${selectedPullIndex}/${calc.numPulls}`;
+      dom.badgeActivePull.classList.add('active');
+    } else {
+      dom.badgeActivePull.textContent = `Tüm Pasolar (${calc.numPulls})`;
+      dom.badgeActivePull.classList.remove('active');
+    }
+  }
+  if (dom.btnPrevPull) {
+    dom.btnPrevPull.disabled = selectedPullIndex === null || selectedPullIndex <= 1;
+  }
+  if (dom.btnNextPull) {
+    dom.btnNextPull.disabled = selectedPullIndex !== null && selectedPullIndex >= calc.numPulls;
+  }
 
   // Starting die advance from the pull start (centered when Lt1 == Lt2)
   let currentPos = calc.pullStartM;
@@ -898,6 +1245,16 @@ function renderPullsTable(calc) {
     cumNetAngle += calc.netAnglePerStep;
     
     const tr = document.createElement('tr');
+    tr.dataset.step = String(i);
+    if (selectedPullIndex === i) {
+      tr.classList.add('selected-pull-row');
+    }
+    tr.style.cursor = 'pointer';
+    tr.setAttribute('title', `Paso #${i} istasyonunu vurgula ve odaklan`);
+    tr.addEventListener('click', () => {
+      selectPull(selectedPullIndex === i ? null : i);
+    });
+
     tr.innerHTML = `
       <td><strong>Paso #${i}</strong></td>
       <td><strong class="text-primary">${currentPos.toFixed(3)} m</strong></td>
@@ -913,55 +1270,466 @@ function renderPullsTable(calc) {
 }
 
 /* ==========================================================================
+   Pulls Data Export Engine (Excel CSV & JSON)
+   ========================================================================== */
+
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function exportPullsToCSV(calc) {
+  if (!calc) calc = runCalculations();
+  const safePipeNo = (state.pipeNo || 'Boru').toString().replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const filename = `ColdBend_Paso_Raporu_${safePipeNo}_${dateStr}.csv`;
+
+  const rows = [];
+  // Excel delimiter hint
+  rows.push('sep=;');
+  // Header metadata block
+  rows.push(['# ColdBend Pro — Saha Soğuk Büküm & QC İmalat Föyü', '', '', '', '', '', '', ''].join(';'));
+  rows.push(['Rapor Tarihi', new Date().toLocaleString('tr-TR'), '', 'Standart', state.standard, '', '', ''].join(';'));
+  rows.push(['Proje Adı', state.projectName || '-', '', 'Hat / Kesim', state.lineSection || '-', '', '', ''].join(';'));
+  rows.push(['Boru No', state.pipeNo || '-', '', 'Heat / Döküm No', state.heatNo || '-', '', '', ''].join(';'));
+  rows.push(['Nominal Dış Çap (OD)', `${state.od} mm`, '', 'Et Kalınlığı (WT)', `${state.t_nom} mm`, '', '', ''].join(';'));
+  rows.push(['Korozyon Payı (CA)', `${state.ca} mm`, '', 'Çelik Kalitesi', `${state.gradeName || 'API 5L'} (SMYS: ${state.smys} MPa)`, '', '', ''].join(';'));
+  rows.push(['Büküm Tipi', state.bendType, '', 'Kaynak Dikiş Yönü', `${state.clockPos} Saat (${state.seamAngle}°)`, '', '', ''].join(';'));
+  rows.push(['Hedef Büküm Açısı', `${state.targetAngle.toFixed(2)}°`, '', 'Elastik Geri Yaylanma', `${calc.springbackDeg.toFixed(2)}°`, '', '', ''].join(';'));
+  rows.push(['Hidrolik Makine Açısı', `${calc.machineAngleDeg.toFixed(2)}°`, '', 'Büküm Yarıçapı (R)', `${calc.r_bend_m.toFixed(2)} m (${state.radiusMultiplier}D)`, '', '', ''].join(';'));
+  rows.push(['Toplam Boru Boyu', `${state.length.toFixed(2)} m`, '', 'Büküm Yayı Boyu', `${calc.l_bent_m.toFixed(2)} m`, '', '', ''].join(';'));
+  rows.push(['Birim Boru Ağırlığı', `${calc.weightPerMeterKg.toFixed(1)} kg/m`, '', 'Toplam Boru Ağırlığı', `${calc.totalPipeWeightTon.toFixed(2)} Ton (${Math.round(calc.totalPipeWeightKg)} kg)`, '', '', ''].join(';'));
+  rows.push(['Rigging Sapan Yükü', `~${calc.riggingSlingLoadTon.toFixed(2)} Ton / Sapan`, '', 'Önerilen Min. Sapan SWL', `${calc.minRecommendedSlingSwlTon.toFixed(2)} Ton (DAF=1.25)`, '', '', ''].join(';'));
+  rows.push(['Ön Düzlük (Lt1)', `${state.tangent1.toFixed(2)} m (Min: ${calc.minClampingLenM.toFixed(2)} m)`, '', 'Arka Düzlük (Lt2)', `${calc.l_t2_actual.toFixed(2)} m (${calc.isClampingSafe ? 'KABUL' : 'RET'})`, '', '', ''].join(';'));
+  rows.push(['Büküm Başlangıcı (PC)', `${calc.pullStartM.toFixed(3)} m`, '', 'Büküm Bitişi (PT)', `${calc.pullEndM.toFixed(3)} m`, '', '', ''].join(';'));
+  rows.push(['Toplam Paso Sayısı', `${calc.numPulls}`, '', 'Paso Başı İlerleme', `${(calc.pullStepPitch * 1000).toFixed(0)} mm`, '', '', ''].join(';'));
+  rows.push(['İç Mandrel Durumu', state.useMandrel ? 'Kilitli (Mandrel Devrede)' : 'Mandrelsiz Pres', '', 'Tasarım Basıncı / Sıcaklık', `${state.designPressure} bar / ${state.designTemp}°C (F=${state.designFactor}, T=${calc.T_temp.toFixed(3)})`, '', '', ''].join(';'));
+  rows.push(['Cidar İncelmesi', `%${calc.thinningPercent.toFixed(2)}`, '', 'Kalan Et Kalınlığı', `${calc.t_extrados.toFixed(2)} mm (Min: ${calc.t_min_design.toFixed(2)} mm)`, '', '', ''].join(';'));
+  rows.push(['Ovalleşme', `%${calc.estimatedOvality.toFixed(2)} (Limit: ≤ 2.50%)`, '', 'Ondülasyon (Ripple)', `${calc.estimatedRippleMm.toFixed(2)} mm (Limit: ≤ ${calc.maxAllowRippleMm.toFixed(2)} mm)`, '', '', ''].join(';'));
+  rows.push(['Birim Çap Başına Açı', `${calc.actualDeflectionRatePerOD.toFixed(2)}°/D (Limit: ≤ ${calc.asmeMethod2Limit.toFixed(1)}°/D)`, '', 'Alın Kaynağı', calc.girthWeldBadge || 'YOK', '', '', ''].join(';'));
+  rows.push(['Bileşik Gerilme (Von Mises)', `${calc.vonMisesStressMpa.toFixed(1)} MPa (Limit: ≤ ${calc.allowableCombinedStressMpa.toFixed(1)} MPa)`, '', 'Gerilme Kullanım Oranı', `%${calc.combinedStressRatioPercent.toFixed(1)} (${calc.isCombinedStressCompliant ? 'KABUL' : 'RET'})`, '', '', ''].join(';'));
+  rows.push(['GENEL HÜKÜM', calc.overallPass ? 'UYGUN (KABUL)' : 'RET (KUSURLU)', '', '', '', '', '', ''].join(';'));
+  rows.push('');
+  // Pulls Table Header
+  rows.push(['Paso #', 'Boru Başı Mesafesi (m)', 'Kalıp İlerlemesi (mm)', 'Paso Açısı (°/Paso)', 'Kümülatif Makine Açısı (°)', 'Kümülatif Net Açı (°)', 'Pres / Mandrel Durumu', 'Standart Limiti'].join(';'));
+
+  let currentPos = calc.pullStartM;
+  let cumMachAngle = 0;
+  let cumNetAngle = 0;
+
+  for (let i = 1; i <= calc.numPulls; i++) {
+    currentPos += calc.pullStepPitch;
+    cumMachAngle += calc.pullAnglePerStep;
+    cumNetAngle += calc.netAnglePerStep;
+
+    rows.push([
+      `Paso #${i}`,
+      currentPos.toFixed(3),
+      (calc.pullStepPitch * 1000).toFixed(0),
+      `+${calc.pullAnglePerStep.toFixed(2)}°`,
+      `${cumMachAngle.toFixed(2)}°`,
+      `${cumNetAngle.toFixed(2)}°`,
+      state.useMandrel ? 'Kilitli (Mandrel Devrede)' : 'Mandrelsiz Pres',
+      calc.isPullAngleCompliant ? `PASS (≤ ${calc.maxAllowPullAngle.toFixed(1)}°)` : `UYARI: > ${calc.maxAllowPullAngle.toFixed(1)}°`
+    ].join(';'));
+  }
+
+  // Prepend UTF-8 BOM so Excel opens Turkish characters correctly
+  const csvContent = '\uFEFF' + rows.join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  triggerDownload(blob, filename);
+}
+
+function exportPullsToJSON(calc) {
+  if (!calc) calc = runCalculations();
+  const safePipeNo = (state.pipeNo || 'Boru').toString().replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const filename = `ColdBend_Bukum_Verisi_${safePipeNo}_${dateStr}.json`;
+
+  const pullsList = [];
+  let currentPos = calc.pullStartM;
+  let cumMachAngle = 0;
+  let cumNetAngle = 0;
+
+  for (let i = 1; i <= calc.numPulls; i++) {
+    currentPos += calc.pullStepPitch;
+    cumMachAngle += calc.pullAnglePerStep;
+    cumNetAngle += calc.netAnglePerStep;
+
+    pullsList.push({
+      step: i,
+      positionFromPipeStart_m: Number(currentPos.toFixed(3)),
+      dieAdvance_mm: Math.round(calc.pullStepPitch * 1000),
+      stepAngle_deg: Number(calc.pullAnglePerStep.toFixed(2)),
+      cumulativeMachineAngle_deg: Number(cumMachAngle.toFixed(2)),
+      cumulativeNetAngle_deg: Number(cumNetAngle.toFixed(2)),
+      mandrelStatus: state.useMandrel ? 'Kilitli (Mandrel Devrede)' : 'Mandrelsiz Pres',
+      isCompliant: calc.isPullAngleCompliant,
+      maxAllowableAngle_deg: calc.maxAllowPullAngle
+    });
+  }
+
+  const exportData = {
+    application: 'ColdBend Pro',
+    version: APP_VERSION,
+    exportDate: new Date().toISOString(),
+    project: {
+      name: state.projectName || '',
+      lineSection: state.lineSection || '',
+      chainageKP: state.chainageKP || '',
+      pipeNo: state.pipeNo || '',
+      heatNo: state.heatNo || '',
+      reportNo: state.reportNo || ''
+    },
+    pipeSpecifications: {
+      standard: state.standard,
+      outerDiameter_mm: state.od,
+      nominalWallThickness_mm: state.t_nom,
+      corrosionAllowance_mm: state.ca,
+      smys_mpa: state.smys,
+      steelGrade: state.gradeName || 'API 5L',
+      pipeLength_m: state.length,
+      seamType: state.seamType,
+      seamClockPosition: state.clockPos,
+      seamAngle_deg: state.seamAngle,
+      designPressure_bar: state.designPressure,
+      designFactor: state.designFactor,
+      designTemperature_C: state.designTemp,
+      temperatureDeratingFactor_T: Number(calc.T_temp.toFixed(3)),
+      effectiveSMYS_mpa: Number((state.smys * calc.T_temp).toFixed(1)),
+      weightPerMeter_kg_m: Number(calc.weightPerMeterKg.toFixed(1)),
+      totalPipeWeight_kg: Math.round(calc.totalPipeWeightKg),
+      totalPipeWeight_ton: Number(calc.totalPipeWeightTon.toFixed(2)),
+      riggingSlingLoad_ton: Number(calc.riggingSlingLoadTon.toFixed(2)),
+      minRecommendedSlingSwl_ton: Number(calc.minRecommendedSlingSwlTon.toFixed(2))
+    },
+    bendDesign: {
+      bendType: state.bendType,
+      targetAngle_deg: state.targetAngle,
+      springbackAngle_deg: Number(calc.springbackDeg.toFixed(2)),
+      machineAngle_deg: Number(calc.machineAngleDeg.toFixed(2)),
+      radiusMultiplier: state.radiusMultiplier,
+      bendRadius_m: Number(calc.r_bend_m.toFixed(2)),
+      arcLength_m: Number(calc.l_bent_m.toFixed(2)),
+      frontTangent_m: state.tangent1,
+      rearTangentDesign_m: state.tangent2,
+      actualRearTangent_m: Number(calc.l_t2_actual.toFixed(2)),
+      minRequiredClampingLength_m: Number(calc.minClampingLenM.toFixed(2)),
+      isClampingSafe: calc.isClampingSafe,
+      clampingStatus: calc.clampingStatusText,
+      pullStart_m: Number(calc.pullStartM.toFixed(3)),
+      pullEnd_m: Number(calc.pullEndM.toFixed(3)),
+      useMandrel: state.useMandrel,
+      girthWeldInBend: state.girthWeldInBend,
+      girthWeldDistance_m: state.girthWeldDist
+    },
+    integrityResults: {
+      overallPass: calc.overallPass,
+      wallThinningPercent: Number(calc.thinningPercent.toFixed(2)),
+      remainingWallMm: Number(calc.t_extrados.toFixed(2)),
+      minRequiredWallMm: Number(calc.t_min_design.toFixed(2)),
+      estimatedOvalityPercent: Number(calc.estimatedOvality.toFixed(2)),
+      ovalityLimitPercent: 2.50,
+      estimatedRippleMm: Number(calc.estimatedRippleMm.toFixed(2)),
+      maxAllowRippleMm: Number(calc.maxAllowRippleMm.toFixed(2)),
+      actualDeflectionRatePerOD: Number(calc.actualDeflectionRatePerOD.toFixed(2)),
+      method2LimitPerOD: calc.asmeMethod2Limit,
+      girthWeldStatus: calc.girthWeldStatusText,
+      hoopStress_mpa: Number(calc.hoopStressMpa.toFixed(1)),
+      longitudinalStress_mpa: Number(calc.longStressMpa.toFixed(1)),
+      vonMisesStress_mpa: Number(calc.vonMisesStressMpa.toFixed(1)),
+      allowableCombinedStress_mpa: Number(calc.allowableCombinedStressMpa.toFixed(1)),
+      combinedStressRatioPercent: Number(calc.combinedStressRatioPercent.toFixed(1)),
+      isCombinedStressCompliant: calc.isCombinedStressCompliant,
+      failedChecks: calc.failedChecks.map(c => ({ key: c.key, label: c.label }))
+    },
+    pullSchedule: {
+      totalPulls: calc.numPulls,
+      pitch_mm: Math.round(calc.pullStepPitch * 1000),
+      anglePerPull_deg: Number(calc.pullAnglePerStep.toFixed(2)),
+      netAnglePerPull_deg: Number(calc.netAnglePerStep.toFixed(2)),
+      steps: pullsList
+    }
+  };
+
+  const jsonContent = JSON.stringify(exportData, null, 2);
+  const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+  triggerDownload(blob, filename);
+}
+
+/* ==========================================================================
+   2D SVG CAD Viewport Zoom & Pan Controller
+   ========================================================================== */
+
+const svg2DState = {
+  baseW: 1000,
+  baseH: 550,
+  x: 0,
+  y: 0,
+  w: 1000,
+  h: 550,
+  zoom: 1.0,
+  minZoom: 0.5,
+  maxZoom: 15.0,
+  isDragging: false,
+  dragStartX: 0,
+  dragStartY: 0,
+  startViewBoxX: 0,
+  startViewBoxY: 0,
+  activePointers: new Map(),
+  initialPinchDist: 0,
+  initialPinchZoom: 1.0,
+  initialPinchCenter: { relX: 0.5, relY: 0.5 }
+};
+
+function apply2DViewBox() {
+  if (!dom.svgBend2D) return;
+  dom.svgBend2D.setAttribute(
+    'viewBox',
+    `${svg2DState.x.toFixed(2)} ${svg2DState.y.toFixed(2)} ${svg2DState.w.toFixed(2)} ${svg2DState.h.toFixed(2)}`
+  );
+  if (dom.badgeZoom2D) {
+    dom.badgeZoom2D.textContent = `%${Math.round(svg2DState.zoom * 100)}`;
+  }
+}
+
+function zoom2DAt(relX, relY, factor) {
+  const currentZoom = svg2DState.zoom;
+  let newZoom = currentZoom * factor;
+  newZoom = Math.max(svg2DState.minZoom, Math.min(svg2DState.maxZoom, newZoom));
+  if (Math.abs(newZoom - currentZoom) < 1e-4) return;
+
+  const pointX = svg2DState.x + relX * svg2DState.w;
+  const pointY = svg2DState.y + relY * svg2DState.h;
+
+  const newW = svg2DState.baseW / newZoom;
+  const newH = svg2DState.baseH / newZoom;
+
+  const newX = pointX - relX * newW;
+  const newY = pointY - relY * newH;
+
+  svg2DState.zoom = newZoom;
+  svg2DState.w = newW;
+  svg2DState.h = newH;
+  svg2DState.x = newX;
+  svg2DState.y = newY;
+
+  apply2DViewBox();
+}
+
+function reset2DView() {
+  svg2DState.zoom = 1.0;
+  svg2DState.w = svg2DState.baseW;
+  svg2DState.h = svg2DState.baseH;
+  svg2DState.x = 0;
+  svg2DState.y = 0;
+  apply2DViewBox();
+}
+
+function focus2DBendArc() {
+  const calc = runCalculations();
+  const pullStartM = calc.pullStartM;
+  const r_bend = calc.r_bend_m;
+  const thetaRad = (state.targetAngle * Math.PI) / 180;
+  const t2 = state.tangent2;
+  const t2draw = Math.max(t2, state.length - pullStartM - r_bend * thetaRad);
+  const spanM = Math.max(1, pullStartM + r_bend * thetaRad + t2draw);
+  const scale = 760 / spanM;
+  const r_vis = Math.max(140, Math.min(1500, r_bend * scale));
+  const startX = 110;
+  const startY = 380;
+  const x_pc = startX + pullStartM * scale;
+  const y_pc = startY;
+  const cx = x_pc;
+  const cy = y_pc - r_vis;
+  const x_pt = cx + r_vis * Math.sin(thetaRad);
+  const y_pt = cy + r_vis * Math.cos(thetaRad);
+
+  const minX = Math.min(x_pc, x_pt) - 60;
+  const maxX = Math.max(x_pc, x_pt) + 80;
+  const minY = Math.min(y_pc, y_pt) - 90;
+  const maxY = Math.max(y_pc, y_pt) + 90;
+
+  const boxW = Math.max(140, maxX - minX);
+  const boxH = Math.max(120, maxY - minY);
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+
+  let targetW = Math.max(boxW * 1.35, boxH * (1000 / 550) * 1.35);
+  targetW = Math.min(svg2DState.baseW, Math.max(180, targetW));
+  const targetH = targetW * (550 / 1000);
+
+  svg2DState.zoom = svg2DState.baseW / targetW;
+  svg2DState.w = targetW;
+  svg2DState.h = targetH;
+  svg2DState.x = centerX - targetW / 2;
+  svg2DState.y = centerY - targetH / 2;
+
+  apply2DViewBox();
+}
+
+function setup2DZoomPan() {
+  if (!dom.svgBend2D) return;
+
+  dom.svgBend2D.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const rect = dom.svgBend2D.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    const relX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const relY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+    const factor = e.deltaY < 0 ? 1.15 : (1 / 1.15);
+    zoom2DAt(relX, relY, factor);
+  }, { passive: false });
+
+  dom.svgBend2D.addEventListener('dblclick', (e) => {
+    e.preventDefault();
+    if (Math.abs(svg2DState.zoom - 1.0) < 0.15) {
+      focus2DBendArc();
+    } else {
+      reset2DView();
+    }
+  });
+
+  dom.svgBend2D.addEventListener('pointerdown', (e) => {
+    if (e.target && e.target.closest && e.target.closest('.controls-2d-overlay, .legend-overlay, .hint-2d-overlay')) return;
+    svg2DState.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try { dom.svgBend2D.setPointerCapture(e.pointerId); } catch (_) {}
+
+    if (svg2DState.activePointers.size === 1) {
+      svg2DState.isDragging = true;
+      svg2DState.dragStartX = e.clientX;
+      svg2DState.dragStartY = e.clientY;
+      svg2DState.startViewBoxX = svg2DState.x;
+      svg2DState.startViewBoxY = svg2DState.y;
+    } else if (svg2DState.activePointers.size === 2) {
+      svg2DState.isDragging = false;
+      const pts = Array.from(svg2DState.activePointers.values());
+      svg2DState.initialPinchDist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+      svg2DState.initialPinchZoom = svg2DState.zoom;
+      const rect = dom.svgBend2D.getBoundingClientRect();
+      const midX = (pts[0].x + pts[1].x) / 2;
+      const midY = (pts[0].y + pts[1].y) / 2;
+      svg2DState.initialPinchCenter = {
+        relX: Math.max(0, Math.min(1, (midX - rect.left) / rect.width)),
+        relY: Math.max(0, Math.min(1, (midY - rect.top) / rect.height))
+      };
+    }
+  });
+
+  dom.svgBend2D.addEventListener('pointermove', (e) => {
+    if (!svg2DState.activePointers.has(e.pointerId)) return;
+    svg2DState.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    const rect = dom.svgBend2D.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+
+    if (svg2DState.activePointers.size === 1 && svg2DState.isDragging) {
+      const dxScreen = e.clientX - svg2DState.dragStartX;
+      const dyScreen = e.clientY - svg2DState.dragStartY;
+      const scaleX = svg2DState.w / rect.width;
+      const scaleY = svg2DState.h / rect.height;
+
+      svg2DState.x = svg2DState.startViewBoxX - dxScreen * scaleX;
+      svg2DState.y = svg2DState.startViewBoxY - dyScreen * scaleY;
+      apply2DViewBox();
+    } else if (svg2DState.activePointers.size === 2 && svg2DState.initialPinchDist > 0) {
+      const pts = Array.from(svg2DState.activePointers.values());
+      const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+      if (dist > 5) {
+        const factor = dist / svg2DState.initialPinchDist;
+        const targetZoom = Math.max(svg2DState.minZoom, Math.min(svg2DState.maxZoom, svg2DState.initialPinchZoom * factor));
+        const deltaFactor = targetZoom / svg2DState.zoom;
+        zoom2DAt(svg2DState.initialPinchCenter.relX, svg2DState.initialPinchCenter.relY, deltaFactor);
+      }
+    }
+  });
+
+  const endPointer = (e) => {
+    svg2DState.activePointers.delete(e.pointerId);
+    try { dom.svgBend2D.releasePointerCapture(e.pointerId); } catch (_) {}
+    if (svg2DState.activePointers.size === 0) {
+      svg2DState.isDragging = false;
+    } else if (svg2DState.activePointers.size === 1) {
+      const remaining = Array.from(svg2DState.activePointers.values())[0];
+      svg2DState.isDragging = true;
+      svg2DState.dragStartX = remaining.x;
+      svg2DState.dragStartY = remaining.y;
+      svg2DState.startViewBoxX = svg2DState.x;
+      svg2DState.startViewBoxY = svg2DState.y;
+    }
+  };
+
+  dom.svgBend2D.addEventListener('pointerup', endPointer);
+  dom.svgBend2D.addEventListener('pointercancel', endPointer);
+
+  // Button Listeners
+  if (dom.btn2dZoomIn) {
+    dom.btn2dZoomIn.addEventListener('click', () => zoom2DAt(0.5, 0.5, 1.25));
+  }
+  if (dom.btn2dZoomOut) {
+    dom.btn2dZoomOut.addEventListener('click', () => zoom2DAt(0.5, 0.5, 1 / 1.25));
+  }
+  if (dom.btn2dFocusArc) {
+    dom.btn2dFocusArc.addEventListener('click', focus2DBendArc);
+  }
+  if (dom.btn2dReset) {
+    dom.btn2dReset.addEventListener('click', reset2DView);
+  }
+}
+
+/* ==========================================================================
    2D Dynamic Engineering SVG Sketch Rendering (C1 Continuous)
    ========================================================================== */
 
 function render2DSketch(calc) {
-  const g = dom.svgDynamicGroup;
+  render2DSketchTo(dom.svgDynamicGroup, calc, false);
+  apply2DViewBox();
+}
+
+function render2DSketchTo(g, calc, isPrintMode = false) {
+  if (!g) return;
   g.innerHTML = '';
   
-  // Available canvas bounds: 1000 x 550 (see #svgBend2D viewBox)
-
   // Real dimensions in meters
   const t1 = state.tangent1;
   const t2 = state.tangent2;
-  // Bend zone start: front-anchored at Lt1, or centered when Lt1 == Lt2.
-  // Manual inputs reshape the sketch: front straight, arc position and
-  // pull markers all follow the pull start.
   const pullStartM = calc.pullStartM;
   const r_bend = calc.r_bend_m;
   const thetaRad = (state.targetAngle * Math.PI) / 180;
   const t2draw = Math.max(t2, state.length - pullStartM - r_bend * thetaRad);
 
-  // Fit-to-span scaling: the whole realized pipe (tangents + true arc
-  // length) always fills the viewport, whatever the pipe length.
+  // Fit-to-span scaling
   const spanM = Math.max(1, pullStartM + r_bend * thetaRad + t2draw);
-  const scale = 760 / spanM; // pixels per meter
+  const scale = isPrintMode ? (820 / spanM) : (760 / spanM); // pixels per meter
 
-  // True-proportion bend radius so curvature reads correctly at any length.
-  // (Cold bends are gentle arcs: small angles render subtle, as built.)
-  const r_vis = Math.max(140, Math.min(1500, r_bend * scale));
+  const r_vis = Math.max(isPrintMode ? 110 : 140, Math.min(isPrintMode ? 850 : 1500, r_bend * scale));
   const clampSvg = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-  const pipeDiaVis = Math.max(14, Math.min(32, (state.od / 1000) * scale * 2.2));
+  const pipeDiaVis = Math.max(isPrintMode ? 12 : 14, Math.min(isPrintMode ? 24 : 32, (state.od / 1000) * scale * 2.2));
   
   // Starting coordinate of pipe on screen
-  const startX = 110;
-  const startY = 380; // horizontal baseline
+  const startX = isPrintMode ? 80 : 110;
+  const startY = isPrintMode ? 225 : 380; // baseline height
   
-  // Point of Curvature (PC) - pull start (Lt1, or centered offset)
+  // Point of Curvature (PC)
   const t1_len_px = pullStartM * scale;
   const x_pc = startX + t1_len_px;
   const y_pc = startY;
   
-  // Center of Curvature O is located UPWARDS (-Y in SVG) from PC
+  // Center of Curvature O
   const cx = x_pc;
   const cy = y_pc - r_vis;
   
-  // Point of Tangency (PT) - End of Arc on Centerline
+  // Point of Tangency (PT)
   const x_pt = cx + r_vis * Math.sin(thetaRad);
   const y_pt = cy + r_vis * Math.cos(thetaRad);
   
-  // Tangent 2 (straight line continuing tangentially from PT)
+  // Tangent 2
   const t2_len_px = t2draw * scale;
   const t2_dirX = Math.cos(thetaRad);
   const t2_dirY = -Math.sin(thetaRad);
@@ -979,13 +1747,12 @@ function render2DSketch(calc) {
   const elemNeutral = document.createElementNS('http://www.w3.org/2000/svg', 'path');
   elemNeutral.setAttribute('d', pathNeutral);
   elemNeutral.setAttribute('fill', 'none');
-  elemNeutral.setAttribute('stroke', '#10b981');
+  elemNeutral.setAttribute('stroke', isPrintMode ? '#047857' : '#10b981');
   elemNeutral.setAttribute('stroke-width', '2.5');
   elemNeutral.setAttribute('stroke-dasharray', '8,4');
   g.appendChild(elemNeutral);
   
-  // --- INTRADOS (Inner curve - closer to center O, Compression & Thickening) ---
-  // Distance to center O is r_vis - pipeDiaVis/2
+  // --- INTRADOS ---
   const r_int = r_vis - pipeDiaVis / 2;
   const int_startX = startX;
   const int_startY = startY - pipeDiaVis / 2;
@@ -1005,12 +1772,11 @@ function render2DSketch(calc) {
   const elemInt = document.createElementNS('http://www.w3.org/2000/svg', 'path');
   elemInt.setAttribute('d', pathIntrados);
   elemInt.setAttribute('fill', 'none');
-  elemInt.setAttribute('stroke', 'url(#gradCompression)');
+  elemInt.setAttribute('stroke', isPrintMode ? '#1e40af' : 'url(#gradCompression)');
   elemInt.setAttribute('stroke-width', '3.5');
   g.appendChild(elemInt);
   
-  // --- EXTRADOS (Outer curve - further from center O, Tension & Thinning Δt) ---
-  // Distance to center O is r_vis + pipeDiaVis/2
+  // --- EXTRADOS ---
   const r_ext = r_vis + pipeDiaVis / 2;
   const ext_startX = startX;
   const ext_startY = startY + pipeDiaVis / 2;
@@ -1030,53 +1796,70 @@ function render2DSketch(calc) {
   const elemExt = document.createElementNS('http://www.w3.org/2000/svg', 'path');
   elemExt.setAttribute('d', pathExtrados);
   elemExt.setAttribute('fill', 'none');
-  elemExt.setAttribute('stroke', 'url(#gradTension)');
+  elemExt.setAttribute('stroke', isPrintMode ? '#b91c1c' : 'url(#gradTension)');
   elemExt.setAttribute('stroke-width', '3.5');
   g.appendChild(elemExt);
   
-  const isLight = document.body.classList.contains('light-theme');
-  const textColor = isLight ? '#0f172a' : '#cbd5e1';
-  const subTextColor = isLight ? '#475569' : '#94a3b8';
-  const dimLineColor = isLight ? '#64748b' : '#94a3b8';
-  const endCapColor = isLight ? '#0f172a' : '#ffffff';
-  const radiusColor = isLight ? '#0284c7' : '#38bdf8';
-  const arcColor = isLight ? '#d97706' : '#f59e0b';
+  const isLight = isPrintMode || document.body.classList.contains('light-theme');
+  const textColor = isPrintMode ? '#000000' : (isLight ? '#0f172a' : '#cbd5e1');
+  const subTextColor = isPrintMode ? '#334155' : (isLight ? '#475569' : '#94a3b8');
+  const dimLineColor = isPrintMode ? '#334155' : (isLight ? '#64748b' : '#94a3b8');
+  const endCapColor = isPrintMode ? '#000000' : (isLight ? '#0f172a' : '#ffffff');
+  const radiusColor = isPrintMode ? '#0284c7' : (isLight ? '#0284c7' : '#38bdf8');
+  const arcColor = isPrintMode ? '#b45309' : (isLight ? '#d97706' : '#f59e0b');
 
-  // Synchronize SVG defs arrow markers (paths cached; theme recolors them)
-  const arrowStart = dom.arrowStartPath || document.getElementById('arrowStart')?.querySelector('path');
-  const arrowEnd = dom.arrowEndPath || document.getElementById('arrowEnd')?.querySelector('path');
-  if (!dom.arrowStartPath && arrowStart) dom.arrowStartPath = arrowStart;
-  if (!dom.arrowEndPath && arrowEnd) dom.arrowEndPath = arrowEnd;
-  if (arrowStart) arrowStart.setAttribute('fill', dimLineColor);
-  if (arrowEnd) arrowEnd.setAttribute('fill', dimLineColor);
+  if (!isPrintMode) {
+    const arrowStart = dom.arrowStartPath || document.getElementById('arrowStart')?.querySelector('path');
+    const arrowEnd = dom.arrowEndPath || document.getElementById('arrowEnd')?.querySelector('path');
+    if (!dom.arrowStartPath && arrowStart) dom.arrowStartPath = arrowStart;
+    if (!dom.arrowEndPath && arrowEnd) dom.arrowEndPath = arrowEnd;
+    if (arrowStart) arrowStart.setAttribute('fill', dimLineColor);
+    if (arrowEnd) arrowEnd.setAttribute('fill', dimLineColor);
+  }
 
-  // End caps (Start & End face bevels)
+  // End caps
   drawEndCap(g, int_startX, int_startY, ext_startX, ext_startY, 'Boru Başı', endCapColor);
   drawEndCap(g, int_endX, int_endY, ext_endX, ext_endY, 'Boru Sonu', endCapColor);
   
-  // Pull / Step markers at exact table positions: each pull's arc
-  // distance (i·pitch) over the machine bend length maps proportionally
-  // onto the drawn arc, so markers match the pull table meter-for-meter.
+  // Pull / Step markers
   for (let i = 1; i <= calc.numPulls; i++) {
     const fraction = (calc.pullStepPitch * i) / Math.max(1e-9, calc.l_bent_m);
     const curAngle = thetaRad * Math.min(1, fraction);
     const px = cx + r_vis * Math.sin(curAngle);
     const py = cy + r_vis * Math.cos(curAngle);
     
+    const isSelected = !isPrintMode && selectedPullIndex === i;
     const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     circle.setAttribute('cx', px);
     circle.setAttribute('cy', py);
-    circle.setAttribute('r', '4');
-    circle.setAttribute('fill', '#f59e0b');
+    circle.setAttribute('r', isSelected ? '7.5' : (isPrintMode ? '3' : '4'));
+    circle.setAttribute('fill', isSelected ? '#ef4444' : '#d97706');
+    if (isSelected) {
+      circle.setAttribute('stroke', '#ffffff');
+      circle.setAttribute('stroke-width', '2.5');
+    }
+    if (!isPrintMode) {
+      circle.style.cursor = 'pointer';
+      circle.setAttribute('data-step', String(i));
+      circle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectPull(selectedPullIndex === i ? null : i);
+      });
+    }
     g.appendChild(circle);
+
+    if (isSelected) {
+      const stepDist = (calc.pullStartM + calc.pullStepPitch * i).toFixed(2);
+      const calloutX = clampSvg(px + 10, 10, 850);
+      const calloutY = clampSvg(py - 10, 20, isPrintMode ? 310 : 540);
+      drawSvgText(g, calloutX, calloutY, `Paso #${i} (${stepDist}m • +${calc.pullAnglePerStep.toFixed(2)}°)`, '#ef4444', '11px', 'var(--font-mono)', 'bold');
+    }
   }
   
-  // Center of Curvature O & Radial Vector Line.
-  // At true proportions O is usually far off-screen, so the guide is
-  // anchored on PC and the label is clamped into the viewport.
-  const oOnScreen = cx >= -60 && cx <= 1060 && cy >= -60 && cy <= 610;
+  // Center of Curvature O & Radial Vector Line
+  const oOnScreen = cx >= -60 && cx <= 1060 && cy >= -60 && cy <= (isPrintMode ? 340 : 610);
   const gx = cx;
-  const gy = oOnScreen ? cy : y_pc - 130;
+  const gy = oOnScreen ? cy : y_pc - (isPrintMode ? 90 : 130);
   const lineRadius = document.createElementNS('http://www.w3.org/2000/svg', 'line');
   lineRadius.setAttribute('x1', gx);
   lineRadius.setAttribute('y1', gy);
@@ -1090,54 +1873,107 @@ function render2DSketch(calc) {
   const centerO = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
   centerO.setAttribute('cx', gx);
   centerO.setAttribute('cy', gy);
-  centerO.setAttribute('r', '4.5');
+  centerO.setAttribute('r', isPrintMode ? '3.5' : '4.5');
   centerO.setAttribute('fill', '#10b981');
   g.appendChild(centerO);
 
-  drawSvgText(g, clampSvg(gx - 14, 8, 880), clampSvg(gy - 10, 20, 540), oOnScreen ? 'O (Büküm Merkezi)' : `O (ölçek dışı • R=${r_bend.toFixed(1)}m)`, subTextColor, '11px', 'var(--font-mono)');
+  drawSvgText(g, clampSvg(gx - 14, 8, 880), clampSvg(gy - 10, 20, isPrintMode ? 310 : 540), oOnScreen ? 'O (Büküm Merkezi)' : `O (R=${r_bend.toFixed(1)}m)`, subTextColor, '10.5px', 'var(--font-mono)');
   
   // Dimension Lines and Annotations
-  if (state.showDimensions) {
-    // Tangent 1 Dimension (drawn front straight; centered offset noted)
-    drawDimensionLine(g, startX, startY + 48, x_pc, y_pc + 48, calc.isCentered ? `Ön = ${pullStartM.toFixed(1)} m (ortalı)` : `Lt1 = ${t1.toFixed(1)} m (Ön Düzlük)`, dimLineColor, textColor);
+  if (state.showDimensions || isPrintMode) {
+    const dimYOff = isPrintMode ? 34 : 48;
+    drawDimensionLine(g, startX, startY + dimYOff, x_pc, y_pc + dimYOff, calc.isCentered ? `Ön = ${pullStartM.toFixed(1)} m (ortalı)` : `Lt1 = ${t1.toFixed(1)} m (Ön Düzlük)`, dimLineColor, textColor, isPrintMode);
     
     // Tangent 2 Dimension (Lt2)
-    const t2_dimOffset = 48;
+    const t2_dimOffset = isPrintMode ? 34 : 48;
     const t2_normX = Math.sin(thetaRad);
     const t2_normY = Math.cos(thetaRad);
     const t2_dimStartX = x_pt + t2_dimOffset * t2_normX;
     const t2_dimStartY = y_pt + t2_dimOffset * t2_normY;
     const t2_dimEndX = endX + t2_dimOffset * t2_normX;
     const t2_dimEndY = endY + t2_dimOffset * t2_normY;
-    drawDimensionLine(g, t2_dimStartX, t2_dimStartY, t2_dimEndX, t2_dimEndY, t2draw > t2 + 1e-9 ? `Lt2 = ${t2draw.toFixed(1)} m (gerçekleşen, giriş ${t2.toFixed(1)} m)` : `Lt2 = ${t2.toFixed(1)} m`, dimLineColor, textColor);
+    drawDimensionLine(g, t2_dimStartX, t2_dimStartY, t2_dimEndX, t2_dimEndY, t2draw > t2 + 1e-9 ? `Lt2 = ${t2draw.toFixed(1)} m (gerçekleşen)` : `Lt2 = ${t2.toFixed(1)} m`, dimLineColor, textColor, isPrintMode);
     
     // Total Pipe Length Dimension at Bottom
-    drawDimensionLine(g, startX, startY + 95, endX, startY + 95, `Boru Boyu: ${state.length.toFixed(1)} m | Efektif Büküm Yayı: ${calc.l_arc_m.toFixed(2)} m`, dimLineColor, textColor);
+    const totalDimYOff = isPrintMode ? 62 : 95;
+    drawDimensionLine(g, startX, startY + totalDimYOff, endX, startY + totalDimYOff, `Boru Boyu: ${state.length.toFixed(1)} m | Efektif Büküm Yayı: ${calc.l_arc_m.toFixed(2)} m (${calc.numPulls} Paso)`, dimLineColor, textColor, isPrintMode);
     
-    // Deflection Angle (arc around O when visible, else inline label at arc mid)
+    // Deflection Angle
     const thetaLabel = `θ = ${state.targetAngle.toFixed(1)}° (Makine: ${calc.machineAngleDeg.toFixed(1)}°)`;
     if (oOnScreen && r_vis <= 600) {
-      drawAngleArcCorrect(g, cx, cy, 75, thetaRad, thetaLabel, arcColor);
+      drawAngleArcCorrect(g, cx, cy, isPrintMode ? 55 : 75, thetaRad, thetaLabel, arcColor);
     } else {
       const amx = cx + r_vis * Math.sin(thetaRad / 2);
       const amy = cy + r_vis * Math.cos(thetaRad / 2);
-      drawSvgText(g, clampSvg(amx + 14, 8, 860), clampSvg(amy - 12, 20, 540), thetaLabel, arcColor, '11px', 'var(--font-mono)', 'bold');
+      drawSvgText(g, clampSvg(amx + 14, 8, 860), clampSvg(amy - 12, 20, isPrintMode ? 310 : 540), thetaLabel, arcColor, '11px', 'var(--font-mono)', 'bold');
     }
 
-    // Radius Label (anchored on the visible guide, clamped into viewport)
-    drawSvgText(g, clampSvg((gx + x_pc) / 2 + 14, 8, 830), clampSvg((gy + y_pc) / 2, 20, 540), `Rbend = ${calc.r_bend_m.toFixed(1)} m (${state.radiusMultiplier}D)`, radiusColor, '12px', 'var(--font-mono)', 'bold');
+    // Radius Label
+    drawSvgText(g, clampSvg((gx + x_pc) / 2 + 14, 8, 830), clampSvg((gy + y_pc) / 2, 20, isPrintMode ? 310 : 540), `Rbend = ${calc.r_bend_m.toFixed(1)} m (${state.radiusMultiplier}D)`, radiusColor, '11px', 'var(--font-mono)', 'bold');
     
-    // Extrados Thinning Label (Below outer red curve)
+    // Extrados Thinning Label
     const midExtAngle = thetaRad * 0.5;
-    const midExtX = cx + (r_ext + 15) * Math.sin(midExtAngle);
-    const midExtY = cy + (r_ext + 15) * Math.cos(midExtAngle);
-    drawSvgText(g, midExtX - 40, midExtY + 16, `Ekstrados (Çekme) Δt = -${calc.delta_t_thin.toFixed(2)} mm (Kalan: ${calc.t_extrados.toFixed(2)} mm)`, '#ef4444', '11px', 'var(--font-mono)', 'bold');
+    const midExtX = cx + (r_ext + 14) * Math.sin(midExtAngle);
+    const midExtY = cy + (r_ext + 14) * Math.cos(midExtAngle);
+    drawSvgText(g, midExtX - 35, midExtY + 14, `Ekstrados (Çekme) Δt = -${calc.delta_t_thin.toFixed(2)} mm (t: ${calc.t_extrados.toFixed(2)} mm)`, '#dc2626', '10px', 'var(--font-mono)', 'bold');
     
-    // Intrados Thickening Label (Above inner blue curve)
+    // Intrados Thickening Label
     const midIntAngle = thetaRad * 0.5;
-    const midIntX = cx + (r_int - 15) * Math.sin(midIntAngle);
-    const midIntY = cy + (r_int - 15) * Math.cos(midIntAngle);
-    drawSvgText(g, midIntX - 30, midIntY - 8, `İntrados (Basma) +${calc.delta_t_thick.toFixed(2)} mm`, '#3b82f6', '11px', 'var(--font-mono)');
+    const midIntX = cx + (r_int - 14) * Math.sin(midIntAngle);
+    const midIntY = cy + (r_int - 14) * Math.cos(midIntAngle);
+    drawSvgText(g, midIntX - 25, midIntY - 6, `İntrados (Basma) +${calc.delta_t_thick.toFixed(2)} mm`, '#1d4ed8', '10px', 'var(--font-mono)');
+  }
+
+  // --- GIRTH WELD IN 2D SKETCH ---
+  if (state.girthWeldInBend && calc.isGwOnPipe) {
+    const gwDist = state.girthWeldDist;
+    let gwCenterX = startX, gwCenterY = startY;
+    let gwNormX = 0, gwNormY = -1;
+    
+    if (gwDist <= pullStartM) {
+      gwCenterX = startX + gwDist * scale;
+      gwCenterY = startY;
+      gwNormX = 0;
+      gwNormY = -1;
+    } else if (gwDist <= pullStartM + r_bend * thetaRad) {
+      const arcDist = gwDist - pullStartM;
+      const arcAng = arcDist / r_bend;
+      gwCenterX = cx + r_vis * Math.sin(arcAng);
+      gwCenterY = cy + r_vis * Math.cos(arcAng);
+      gwNormX = -Math.sin(arcAng);
+      gwNormY = -Math.cos(arcAng);
+    } else {
+      const t2Dist = gwDist - (pullStartM + r_bend * thetaRad);
+      gwCenterX = x_pt + t2Dist * scale * t2_dirX;
+      gwCenterY = y_pt + t2Dist * scale * t2_dirY;
+      gwNormX = -t2_dirY;
+      gwNormY = t2_dirX;
+    }
+
+    const halfW = pipeDiaVis / 2;
+    const p1x = gwCenterX + gwNormX * (halfW + 4);
+    const p1y = gwCenterY + gwNormY * (halfW + 4);
+    const p2x = gwCenterX - gwNormX * (halfW + 4);
+    const p2y = gwCenterY - gwNormY * (halfW + 4);
+
+    const weldColor = calc.isGwInArc ? '#b91c1c' : '#0284c7';
+    
+    const gwLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    gwLine.setAttribute('x1', p1x);
+    gwLine.setAttribute('y1', p1y);
+    gwLine.setAttribute('x2', p2x);
+    gwLine.setAttribute('y2', p2y);
+    gwLine.setAttribute('stroke', weldColor);
+    gwLine.setAttribute('stroke-width', '3.5');
+    gwLine.setAttribute('stroke-dasharray', '4,2');
+    g.appendChild(gwLine);
+
+    const labelText = calc.isGwInArc 
+      ? `Alın Kaynağı (X=${gwDist.toFixed(1)}m · %100 RT Zorunlu)`
+      : `Alın Kaynağı (X=${gwDist.toFixed(1)}m · Normal RT)`;
+    
+    const tagY = gwCenterY + (gwNormY < 0 ? -(halfW + 14) : (halfW + 20));
+    drawSvgText(g, clampSvg(gwCenterX, 60, 920), clampSvg(tagY, 15, isPrintMode ? 310 : 530), labelText, weldColor, '10px', 'var(--font-mono)', 'bold', 'middle');
   }
 }
 
@@ -1153,7 +1989,7 @@ function drawEndCap(g, x1, y1, x2, y2, label, color = '#ffffff') {
   drawSvgText(g, (x1 + x2) / 2, (y1 + y2) / 2 - 10, label, color, '10px', "'JetBrains Mono', monospace", 'bold', 'middle');
 }
 
-function drawDimensionLine(g, x1, y1, x2, y2, text, strokeColor = '#94a3b8', textColor = '#cbd5e1') {
+function drawDimensionLine(g, x1, y1, x2, y2, text, strokeColor = '#94a3b8', textColor = '#cbd5e1', isPrint = false) {
   const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
   line.setAttribute('x1', x1);
   line.setAttribute('y1', y1);
@@ -1161,13 +1997,13 @@ function drawDimensionLine(g, x1, y1, x2, y2, text, strokeColor = '#94a3b8', tex
   line.setAttribute('y2', y2);
   line.setAttribute('stroke', strokeColor);
   line.setAttribute('stroke-width', '1.3');
-  line.setAttribute('marker-start', 'url(#arrowStart)');
-  line.setAttribute('marker-end', 'url(#arrowEnd)');
+  line.setAttribute('marker-start', isPrint ? 'url(#arrowPrintStart)' : 'url(#arrowStart)');
+  line.setAttribute('marker-end', isPrint ? 'url(#arrowPrintEnd)' : 'url(#arrowEnd)');
   g.appendChild(line);
   
   const midX = (x1 + x2) / 2;
   const midY = (y1 + y2) / 2 - 7;
-  drawSvgText(g, midX, midY, text, textColor, '11px', 'var(--font-mono)', 'bold', 'middle');
+  drawSvgText(g, midX, midY, text, textColor, isPrint ? '10px' : '11px', 'var(--font-mono)', 'bold', 'middle');
 }
 
 function drawAngleArcCorrect(g, cx, cy, radius, endAngle, label, arcColor = '#f59e0b') {
@@ -1213,6 +2049,7 @@ const CAM_HOME_POS = [0, 7, 18];
 let pipeMesh3D = null;
 let mandrelMesh3D = null;
 let seamLine3D = null;
+let girthWeldMesh3D = null;
 let pullMarkers3D = [];
 let bendCurve3D = null; // { curve, len } of the last built 3D pipe
 let machineGroup3D = null;
@@ -1438,9 +2275,10 @@ function update3DPipe(calc, angleOverrideDeg = null) {
   disposeMesh(pipeMesh3D);
   disposeMesh(mandrelMesh3D);
   disposeMesh(seamLine3D);
+  disposeMesh(girthWeldMesh3D);
   (pullMarkers3D || []).forEach(disposeMesh);
   pullMarkers3D = [];
-  pipeMesh3D = mandrelMesh3D = seamLine3D = null;
+  pipeMesh3D = mandrelMesh3D = seamLine3D = girthWeldMesh3D = null;
   
   // Geometry parameters
   const totalLength = state.length;
@@ -1768,16 +2606,40 @@ function update3DPipe(calc, angleOverrideDeg = null) {
     const zAxis = new THREE.Vector3(0, 0, 1);
     for (let i = 1; i <= calc.numPulls; i++) {
       if (bendAnim.active && i > bendAnim.step) continue;
-      const isActivePull = bendAnim.active && i === bendAnim.step;
+      const isSelected = !bendAnim.active && selectedPullIndex === i;
+      const isActivePull = (bendAnim.active && i === bendAnim.step) || isSelected;
       const u = Math.min(1, (calc.pullStartM + calc.pullStepPitch * i) / curveLen);
       const ring = new THREE.Mesh(ringGeom, isActivePull ? ringMatActive : ringMat);
-      if (isActivePull) ring.scale.setScalar(1.5);
+      if (isActivePull) ring.scale.setScalar(1.6);
       ring.position.copy(pipeCurve.getPointAt(u));
       ring.quaternion.setFromUnitVectors(zAxis, pipeCurve.getTangentAt(u).normalize());
       scene3D.add(ring);
       pullMarkers3D.push(ring);
     }
+    if (selectedPullIndex && !bendAnim.active && machineGroup3D) {
+      placeBendingMachineAt(calc.pullStartM + calc.pullStepPitch * selectedPullIndex);
+    }
   }
+
+  // --- Circumferential Girth Weld 3D Ring ---
+  if (state.girthWeldInBend && calc.isGwOnPipe) {
+    const uWeld = Math.max(0.001, Math.min(0.999, state.girthWeldDist / totalLength));
+    const gwGeom = new THREE.TorusGeometry(pipeRadius * 1.05, Math.max(0.022, pipeRadius * 0.05), 10, animLowDetail ? 16 : 36);
+    const gwColor = calc.isGwInArc ? 0xef4444 : 0x06b6d4; // Red if in bend zone (%100 RT), Cyan if in tangent
+    const gwMat = new THREE.MeshStandardMaterial({
+      color: gwColor,
+      roughness: 0.3,
+      metalness: 0.85,
+      emissive: gwColor,
+      emissiveIntensity: 0.45
+    });
+    girthWeldMesh3D = new THREE.Mesh(gwGeom, gwMat);
+    girthWeldMesh3D.position.copy(pipeCurve.getPointAt(uWeld));
+    const zAxis = new THREE.Vector3(0, 0, 1);
+    girthWeldMesh3D.quaternion.setFromUnitVectors(zAxis, pipeCurve.getTangentAt(uWeld).normalize());
+    scene3D.add(girthWeldMesh3D);
+  }
+
   bendCurve3D = { curve: pipeCurve, len: pipeCurve.getLength() };
 
   // Remember pipe center for tab-switch framing; never touch the user's
@@ -1976,8 +2838,12 @@ function updatePrintableCard(calc) {
   if (dom.prtPipeOD) dom.prtPipeOD.textContent = `${state.npsLabel} (${tr(state.od, 1)} mm)`;
   if (dom.prtSteelGrade) dom.prtSteelGrade.textContent = `${state.gradeName} (SMYS: ${state.smys} MPa)`;
   if (dom.prtNomWT) dom.prtNomWT.textContent = `${tr(state.t_nom)} mm (CA: ${tr(state.ca, 1)} mm)`;
+  if (dom.prtPipeWeight) dom.prtPipeWeight.textContent = `${tr(calc.weightPerMeterKg, 1)} kg/m — ${tr(calc.totalPipeWeightTon)} Ton (${Math.round(calc.totalPipeWeightKg).toLocaleString('tr-TR')} kg)`;
+  if (dom.prtRiggingLoad) dom.prtRiggingLoad.textContent = `~${tr(calc.riggingSlingLoadTon)} Ton (Min. Sapan SWL: ${tr(calc.minRecommendedSlingSwlTon)} Ton)`;
   if (dom.prtSeam) dom.prtSeam.textContent = `${state.seamType} - ${clockCheck.lblClock}`;
-  if (dom.prtDesignPress) dom.prtDesignPress.textContent = `${tr(state.designPressure, 1)} bar (F: ${String(state.designFactor).replace('.', ',')})`;
+  if (dom.prtDesignPress) {
+    dom.prtDesignPress.textContent = `${tr(state.designPressure, 1)} bar (F: ${String(state.designFactor).replace('.', ',')}${calc.T_temp < 0.999 ? `, T: ${tr(calc.T_temp, 3)} @ ${tr(state.designTemp, 0)}°C` : ` @ ${tr(state.designTemp, 0)}°C`})`;
+  }
   
   // Section 2
   if (dom.prtRCalculated) dom.prtRCalculated.textContent = `${tr(calc.r_bend_m)} m (${state.radiusMultiplier} D)`;
@@ -1993,9 +2859,10 @@ function updatePrintableCard(calc) {
           : `${tr(calc.theta_max_deg)}° (KAPASİTE DAHİLİ)`;
   }
   if (dom.prtTangents) {
+    const clampNote = calc.isClampingSafe ? 'Sıkma: KABUL' : 'Sıkma: YETERSİZ';
     dom.prtTangents.textContent = calc.isCentered
-      ? `${tr(calc.pullStartM)} m / ${tr(calc.l_t2_actual)} m (ortalı: giriş ${tr(state.tangent1)} / ${tr(state.tangent2)})`
-      : `${tr(state.tangent1)} m / ${tr(state.tangent2)} m`;
+      ? `${tr(calc.pullStartM)} m / ${tr(calc.l_t2_actual)} m (Min: ${tr(calc.minClampingLenM)} m - ${clampNote})`
+      : `${tr(state.tangent1)} m / ${tr(calc.l_t2_actual)} m (Min: ${tr(calc.minClampingLenM)} m - ${clampNote})`;
   }
   if (dom.prtArcLength) dom.prtArcLength.textContent = `${tr(calc.l_arc_m)} m (makine yayı: ${tr(calc.l_bent_m)} m)`;
   if (dom.prtSpringback) dom.prtSpringback.textContent = `${tr(calc.springbackDeg)}°`;
@@ -2008,13 +2875,31 @@ function updatePrintableCard(calc) {
   if (dom.prtMandrel) dom.prtMandrel.textContent = state.useMandrel ? 'İç Hidrolik Mandrel Kullanıldı (KABUL)' : 'Mandrelsiz Büküm Yapıldı';
   if (dom.prtDeflectionRate) dom.prtDeflectionRate.textContent = `${tr(calc.actualDeflectionRatePerOD)}° / D (Limit: ≤ ${tr(calc.asmeMethod2Limit, 1)}° / D) - ${calc.isMethod2Compliant ? 'KABUL' : 'RET'}`;
   if (dom.prtRippleStatus) dom.prtRippleStatus.textContent = `~${tr(calc.estimatedRippleMm, 1)} mm (Limit: ≤ ${tr(calc.maxAllowRippleMm, 1)} mm / %1,0 D) - ${calc.isRippleCompliant ? 'KABUL' : 'RET'}`;
-  if (dom.prtSeamStatus) dom.prtSeamStatus.textContent = calc.isSeamSafe ? 'Nötr Eksen ±10° sınırında (KABUL)' : 'Nötr Eksen Dışında (RET)';
-  if (dom.prtGirthWeldStatus) dom.prtGirthWeldStatus.textContent = state.girthWeldInBend ? 'Alın Kaynağı MEVCUT (Md. 841.2.3-a-5 Gereği 100% RT ZORUNLU)' : 'Alın Kaynağı Yok (RT Gerekmez)';
+  if (dom.prtGirthWeldStatus) {
+    if (!state.girthWeldInBend) {
+      dom.prtGirthWeldStatus.textContent = 'Alın Kaynağı Yok (RT Gerekmez)';
+    } else if (calc.isGwInArc) {
+      dom.prtGirthWeldStatus.textContent = `Boru Başı X=${tr(state.girthWeldDist)} m (BÜKÜM YAYI İÇİNDE - Md. 841.2.3-a-5 Gereği %100 RT ZORUNLU)`;
+    } else if (calc.isGwOnPipe) {
+      dom.prtGirthWeldStatus.textContent = `Boru Başı X=${tr(state.girthWeldDist)} m (Düz Teğet Bölgede - Büküm Yayından Muaf, Normal Saha RT)`;
+    } else {
+      dom.prtGirthWeldStatus.textContent = `Hatalı Konum (X=${tr(state.girthWeldDist)} m Boru Boyu Dışında)`;
+    }
+  }
 
-  // Section 4: print pulls table (same math as renderPullsTable; truncated for A4)
+  if (dom.prtCombinedStress) {
+    dom.prtCombinedStress.textContent = `Von Mises: ${tr(calc.vonMisesStressMpa, 1)} MPa (Limit: ≤ ${tr(calc.allowableCombinedStressMpa, 1)} MPa / %90 SMYS) - ${calc.isCombinedStressCompliant ? 'KABUL' : 'RET'} (%${tr(calc.combinedStressRatioPercent, 1)})`;
+  }
+
+  // Section 4: Render 2D Vector CAD Sketch to Printable Card
+  if (dom.svgPrintDynamicGroup) {
+    render2DSketchTo(dom.svgPrintDynamicGroup, calc, true);
+  }
+
+  // Section 5: print pulls table (same math as renderPullsTable; truncated for A4)
   if (dom.prtPullsHead) {
     dom.prtPullsHead.textContent =
-      `4. HİDROLİK BÜKÜM ADIMLARI (PASO / PULL TABLOSU) — ${calc.numPulls} paso` +
+      `5. HİDROLİK BÜKÜM ADIMLARI (PASO / PULL TABLOSU) — ${calc.numPulls} paso` +
       `${calc.manualPullsUsed ? ' (manuel adet)' : ''}${calc.isCentered ? ' (ortalı)' : ''}`;
   }
   const prtBody = dom.prtPullsBody;
@@ -2176,6 +3061,7 @@ function restoreState() {
   state.targetAngle = num(data.targetAngle, state.targetAngle, 0.5, 90);
   state.radiusMultiplier = num(data.radiusMultiplier, state.radiusMultiplier, 5, 100);
   state.designPressure = num(data.designPressure, state.designPressure, 1, 250);
+  state.designTemp = num(data.designTemp, state.designTemp, -20, 250);
   state.designFactor = oneOf(num(data.designFactor, state.designFactor), [0.8, 0.72, 0.6, 0.5, 0.4], state.designFactor);
   if (data.manualPulls === null || data.manualPulls === undefined || data.manualPulls === '') {
     state.manualPulls = null;
@@ -2185,6 +3071,7 @@ function restoreState() {
   }
   state.useMandrel = data.useMandrel !== undefined ? !!data.useMandrel : state.useMandrel;
   state.girthWeldInBend = data.girthWeldInBend !== undefined ? !!data.girthWeldInBend : state.girthWeldInBend;
+  state.girthWeldDist = num(data.girthWeldDist, state.girthWeldDist, 0.1, 30);
   state.showDimensions = data.showDimensions !== undefined ? !!data.showDimensions : state.showDimensions;
   state.mandrelVisible3D = data.mandrelVisible3D !== undefined ? !!data.mandrelVisible3D : state.mandrelVisible3D;
   state.seamVisible3D = data.seamVisible3D !== undefined ? !!data.seamVisible3D : state.seamVisible3D;
@@ -2227,8 +3114,11 @@ function restoreState() {
   setVal(dom.inpTangent2, state.tangent2);
   setVal(dom.inpManualPulls, state.manualPulls == null ? '' : state.manualPulls);
   setVal(dom.inpDesignPressure, state.designPressure);
+  setVal(dom.inpDesignTemp, state.designTemp);
   if (dom.chkUseMandrel) dom.chkUseMandrel.checked = state.useMandrel;
   if (dom.chkGirthWeld) dom.chkGirthWeld.checked = state.girthWeldInBend;
+  setVal(dom.inpGirthWeldDist, state.girthWeldDist);
+  if (dom.groupGirthWeldDist) dom.groupGirthWeldDist.style.display = state.girthWeldInBend ? 'block' : 'none';
   setVal(dom.inpProjectName, state.projectName);
   setVal(dom.inpLineSection, state.lineSection);
   setVal(dom.inpChainageKP, state.chainageKP);
@@ -2288,6 +3178,117 @@ function restoreState() {
   syncRadiusOptions();
 }
 
+/* ==========================================================================
+   Topographic Slope & Elevation Deflection Angle Calculator
+   ========================================================================== */
+const slopeCalcState = {
+  mode: 'percent', // 'percent' or 'elevation'
+  calculatedAngle: 10.29,
+  bendType: 'overbend'
+};
+
+function calculateSlopeDeflection() {
+  let angleDeg = 0;
+  let bendType = 'overbend';
+  let desc = '';
+
+  if (slopeCalcState.mode === 'percent') {
+    const isDegree = dom.selSlopeUnit && dom.selSlopeUnit.value === 'degree';
+    const s1 = parseFloat(dom.inpSlope1 ? dom.inpSlope1.value : '0') || 0;
+    const s2 = parseFloat(dom.inpSlope2 ? dom.inpSlope2.value : '0') || 0;
+
+    let a1 = 0, a2 = 0;
+    if (isDegree) {
+      a1 = s1;
+      a2 = s2;
+    } else {
+      a1 = Math.atan(s1 / 100) * (180 / Math.PI);
+      a2 = Math.atan(s2 / 100) * (180 / Math.PI);
+    }
+
+    angleDeg = Math.abs(a2 - a1);
+    if (a1 > a2) {
+      bendType = 'overbend';
+      desc = `Giriş eğimi: ${a1 >= 0 ? '+' : ''}${a1.toFixed(2)}° • Çıkış eğimi: ${a2 >= 0 ? '+' : ''}${a2.toFixed(2)}° • Eğim farkı tepe (konveks) oluşturmaktadır.`;
+    } else if (a1 < a2) {
+      bendType = 'sagbend';
+      desc = `Giriş eğimi: ${a1 >= 0 ? '+' : ''}${a1.toFixed(2)}° • Çıkış eğimi: ${a2 >= 0 ? '+' : ''}${a2.toFixed(2)}° • Eğim farkı vadi/çukur (konkav) oluşturmaktadır.`;
+    } else {
+      bendType = 'overbend';
+      desc = 'Eğim farkı yoktur (düz doğrusal hat).';
+    }
+  } else {
+    // Mode 2: Elevation & Stations (KP)
+    const kp1 = parseFloat(dom.inpElevKp1 ? dom.inpElevKp1.value : '0') || 0;
+    const z1 = parseFloat(dom.inpElevZ1 ? dom.inpElevZ1.value : '0') || 0;
+    const kp2 = parseFloat(dom.inpElevKp2 ? dom.inpElevKp2.value : '0') || 0;
+    const z2 = parseFloat(dom.inpElevZ2 ? dom.inpElevZ2.value : '0') || 0;
+    const kp3 = parseFloat(dom.inpElevKp3 ? dom.inpElevKp3.value : '0') || 0;
+    const z3 = parseFloat(dom.inpElevZ3 ? dom.inpElevZ3.value : '0') || 0;
+
+    const dx1 = kp2 - kp1;
+    const dz1 = z2 - z1;
+    const dx2 = kp3 - kp2;
+    const dz2 = z3 - z2;
+
+    if (Math.abs(dx1) < 1e-4 || Math.abs(dx2) < 1e-4) {
+      angleDeg = 0;
+      desc = 'İstasyon mesafeleri sıfır olamaz.';
+    } else {
+      const a1 = Math.atan(dz1 / dx1) * (180 / Math.PI);
+      const a2 = Math.atan(dz2 / dx2) * (180 / Math.PI);
+      angleDeg = Math.abs(a2 - a1);
+
+      if (a1 > a2) {
+        bendType = 'overbend';
+        desc = `1. Kol eğimi: ${a1 >= 0 ? '+' : ''}${a1.toFixed(2)}° (%${((dz1/dx1)*100).toFixed(1)}) • 2. Kol eğimi: ${a2 >= 0 ? '+' : ''}${a2.toFixed(2)}° (%${((dz2/dx2)*100).toFixed(1)}) • Tepe bükümü.`;
+      } else if (a1 < a2) {
+        bendType = 'sagbend';
+        desc = `1. Kol eğimi: ${a1 >= 0 ? '+' : ''}${a1.toFixed(2)}° (%${((dz1/dx1)*100).toFixed(1)}) • 2. Kol eğimi: ${a2 >= 0 ? '+' : ''}${a2.toFixed(2)}° (%${((dz2/dx2)*100).toFixed(1)}) • Taban/vadi bükümü.`;
+      } else {
+        bendType = 'overbend';
+        desc = 'İki kol aynı doğrultudadır (açı: 0°).';
+      }
+    }
+  }
+
+  slopeCalcState.calculatedAngle = angleDeg;
+  slopeCalcState.bendType = bendType;
+
+  if (dom.valCalculatedSlopeAngle) dom.valCalculatedSlopeAngle.textContent = `${angleDeg.toFixed(2)}°`;
+  if (dom.badgeCalculatedBendType) {
+    dom.badgeCalculatedBendType.textContent = bendType === 'overbend' ? 'OVERBEND (Tepe Bükümü)' : 'SAGBEND (Taban / Vadi Bükümü)';
+    dom.badgeCalculatedBendType.className = `badge-mini ${bendType === 'overbend' ? 'pass' : 'info'}`;
+  }
+  if (dom.descCalculatedSlope) dom.descCalculatedSlope.textContent = desc;
+}
+
+function openSlopeModal() {
+  if (!dom.slopeModal) return;
+  dom.slopeModal.hidden = false;
+  calculateSlopeDeflection();
+}
+
+function closeSlopeModal() {
+  if (!dom.slopeModal) return;
+  dom.slopeModal.hidden = true;
+}
+
+function applyCalculatedSlope() {
+  const angle = parseFloat(slopeCalcState.calculatedAngle.toFixed(2));
+  if (angle > 0.05) {
+    state.targetAngle = angle;
+    state.bendType = slopeCalcState.bendType;
+
+    if (dom.inpTargetAngle) dom.inpTargetAngle.value = state.targetAngle;
+    if (dom.rngTargetAngle) dom.rngTargetAngle.value = Math.min(45, state.targetAngle);
+    if (dom.selBendType) dom.selBendType.value = state.bendType;
+
+    updateUI();
+  }
+  closeSlopeModal();
+}
+
 function setupEventListeners() {
   // Preset Selector
   dom.selPreset.addEventListener('change', (e) => {
@@ -2345,6 +3346,9 @@ function setupEventListeners() {
       
       state.designFactor = p.designFactor;
       dom.selDesignFactor.value = p.designFactor;
+      
+      state.designTemp = p.designTemp !== undefined ? p.designTemp : 20.0;
+      if (dom.inpDesignTemp) dom.inpDesignTemp.value = state.designTemp;
       
       state.useMandrel = p.useMandrel;
       dom.chkUseMandrel.checked = p.useMandrel;
@@ -2552,11 +3556,18 @@ function setupEventListeners() {
     updateUI();
   });
 
-  // Pressure & Class Factor
+  // Pressure & Class Factor & Temperature
   dom.inpDesignPressure.addEventListener('input', (e) => {
     state.designPressure = clampNum(e.target.value, 1, 250, 50);
     updateUI();
   });
+
+  if (dom.inpDesignTemp) {
+    dom.inpDesignTemp.addEventListener('input', (e) => {
+      state.designTemp = clampNum(e.target.value, -20, 250, 20.0);
+      updateUI();
+    });
+  }
 
   dom.selDesignFactor.addEventListener('change', (e) => {
     state.designFactor = parseFloat(e.target.value) || 0.72;
@@ -2577,12 +3588,61 @@ function setupEventListeners() {
     });
   }
 
+  // Girth Weld Distance Input
+  if (dom.inpGirthWeldDist) {
+    dom.inpGirthWeldDist.addEventListener('input', (e) => {
+      state.girthWeldDist = clampNum(e.target.value, 0.1, 30, 6.0);
+      updateUI();
+    });
+  }
+
   // Collapsible pulls table (long lists on small screens)
   if (dom.btnTogglePulls) {
     dom.btnTogglePulls.addEventListener('click', () => {
       const collapsed = dom.pullsWrap ? dom.pullsWrap.classList.toggle('is-collapsed') : false;
       dom.btnTogglePulls.textContent = collapsed ? 'Göster' : 'Gizle';
       dom.btnTogglePulls.setAttribute('aria-expanded', String(!collapsed));
+    });
+  }
+
+  // Step-by-Step Operator Inspector Controls
+  if (dom.btnPrevPull) {
+    dom.btnPrevPull.addEventListener('click', () => {
+      const calc = runCalculations();
+      if (selectedPullIndex === null) {
+        selectPull(calc.numPulls);
+      } else if (selectedPullIndex > 1) {
+        selectPull(selectedPullIndex - 1);
+      }
+    });
+  }
+  if (dom.btnNextPull) {
+    dom.btnNextPull.addEventListener('click', () => {
+      const calc = runCalculations();
+      if (selectedPullIndex === null) {
+        selectPull(1);
+      } else if (selectedPullIndex < calc.numPulls) {
+        selectPull(selectedPullIndex + 1);
+      }
+    });
+  }
+  if (dom.badgeActivePull) {
+    dom.badgeActivePull.addEventListener('click', () => {
+      selectPull(null);
+    });
+  }
+
+  // Pulls Table Excel CSV & JSON Export
+  if (dom.btnExportCSV) {
+    dom.btnExportCSV.addEventListener('click', () => {
+      const calc = runCalculations();
+      exportPullsToCSV(calc);
+    });
+  }
+  if (dom.btnExportJSON) {
+    dom.btnExportJSON.addEventListener('click', () => {
+      const calc = runCalculations();
+      exportPullsToJSON(calc);
     });
   }
 
@@ -2595,7 +3655,7 @@ function setupEventListeners() {
     dom.view2D.classList.add('active');
     dom.view3D.classList.remove('active');
     if (dom.visInfoLabel) dom.visInfoLabel.textContent = 'Şematik Vektör Analizi • Canlı Güncelleme';
-    if (dom.btnResetView) dom.btnResetView.style.display = 'none';
+    if (dom.btnResetView) dom.btnResetView.style.display = '';
     stopBendAnimation(false);
     render2DSketch(runCalculations());
   });
@@ -2623,7 +3683,7 @@ function setupEventListeners() {
     if (dom.view3D.classList.contains('active') && controls3D) {
       frameCameraToPipe();
     } else {
-      render2DSketch(runCalculations());
+      reset2DView();
     }
   });
 
@@ -2725,6 +3785,55 @@ function setupEventListeners() {
     sidebarEl.addEventListener('change', markCustomPreset);
   }
 
+  // Topographic Slope / Elevation Calculator Modal wiring
+  if (dom.btnOpenSlopeCalc) {
+    dom.btnOpenSlopeCalc.addEventListener('click', openSlopeModal);
+  }
+  if (dom.btnCloseSlopeModal) {
+    dom.btnCloseSlopeModal.addEventListener('click', closeSlopeModal);
+  }
+  if (dom.btnCloseSlopeModalX) {
+    dom.btnCloseSlopeModalX.addEventListener('click', closeSlopeModal);
+  }
+  if (dom.slopeModal) {
+    dom.slopeModal.addEventListener('click', (e) => {
+      if (e.target === dom.slopeModal) closeSlopeModal();
+    });
+  }
+  if (dom.tabSlopePercent) {
+    dom.tabSlopePercent.addEventListener('click', () => {
+      slopeCalcState.mode = 'percent';
+      dom.tabSlopePercent.classList.add('active');
+      dom.tabSlopeElevation.classList.remove('active');
+      dom.tabSlopePercent.setAttribute('aria-selected', 'true');
+      dom.tabSlopeElevation.setAttribute('aria-selected', 'false');
+      if (dom.panelSlopePercent) dom.panelSlopePercent.style.display = 'block';
+      if (dom.panelSlopeElevation) dom.panelSlopeElevation.style.display = 'none';
+      calculateSlopeDeflection();
+    });
+  }
+  if (dom.tabSlopeElevation) {
+    dom.tabSlopeElevation.addEventListener('click', () => {
+      slopeCalcState.mode = 'elevation';
+      dom.tabSlopeElevation.classList.add('active');
+      dom.tabSlopePercent.classList.remove('active');
+      dom.tabSlopeElevation.setAttribute('aria-selected', 'true');
+      dom.tabSlopePercent.setAttribute('aria-selected', 'false');
+      if (dom.panelSlopeElevation) dom.panelSlopeElevation.style.display = 'block';
+      if (dom.panelSlopePercent) dom.panelSlopePercent.style.display = 'none';
+      calculateSlopeDeflection();
+    });
+  }
+  [dom.inpSlope1, dom.inpSlope2, dom.selSlopeUnit, dom.inpElevKp1, dom.inpElevZ1, dom.inpElevKp2, dom.inpElevZ2, dom.inpElevKp3, dom.inpElevZ3].forEach((inputEl) => {
+    if (inputEl) {
+      inputEl.addEventListener('input', calculateSlopeDeflection);
+      inputEl.addEventListener('change', calculateSlopeDeflection);
+    }
+  });
+  if (dom.btnApplyCalculatedSlope) {
+    dom.btnApplyCalculatedSlope.addEventListener('click', applyCalculatedSlope);
+  }
+
   // Update Manager wiring
   if (dom.btnCheckUpdates) {
     dom.btnCheckUpdates.addEventListener('click', () => checkForUpdates(true));
@@ -2738,8 +3847,39 @@ function setupEventListeners() {
     });
   }
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && dom.updateModal && !dom.updateModal.hidden) closeUpdateModal();
+    if (e.key === 'Escape') {
+      if (dom.updateModal && !dom.updateModal.hidden) closeUpdateModal();
+      if (dom.slopeModal && !dom.slopeModal.hidden) closeSlopeModal();
+      if (selectedPullIndex !== null) selectPull(null);
+      return;
+    }
+    const tag = e.target && e.target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (e.key === 'ArrowRight') {
+      const calc = runCalculations();
+      if (calc.numPulls > 0) {
+        e.preventDefault();
+        if (selectedPullIndex === null) {
+          selectPull(1);
+        } else if (selectedPullIndex < calc.numPulls) {
+          selectPull(selectedPullIndex + 1);
+        }
+      }
+    } else if (e.key === 'ArrowLeft') {
+      const calc = runCalculations();
+      if (calc.numPulls > 0) {
+        e.preventDefault();
+        if (selectedPullIndex === null) {
+          selectPull(calc.numPulls);
+        } else if (selectedPullIndex > 1) {
+          selectPull(selectedPullIndex - 1);
+        }
+      }
+    }
   });
+
+  // Initialize 2D CAD Zoom & Pan Controller
+  setup2DZoomPan();
 }
 
 /* ==========================================================================
