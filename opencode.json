@@ -7,5 +7,6 @@
     "question": "allow",
     "task": "allow"
   },
-  "instructions": ["AGENTS.md"]
+  "instructions": ["AGENTS.md"],
+  "plugins": ["./.opencode/plugins"]
 }
