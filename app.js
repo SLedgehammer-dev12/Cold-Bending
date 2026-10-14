@@ -3076,9 +3076,9 @@ function update3DPipe(calc, angleOverrideDeg = null) {
   const tangStart = pipeCurve.getTangentAt(0).normalize();
   const ringGeomStart = new THREE.RingGeometry(innerRadius, pipeRadius, radialSegments);
   const qStart = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangStart);
-  ringGeomStart.applyQuaternion(qStart);
-  ringGeomStart.translate(ptStart.x, ptStart.y, ptStart.z);
   const capStart = new THREE.Mesh(ringGeomStart, endFaceMat);
+  capStart.position.copy(ptStart);
+  capStart.quaternion.copy(qStart);
   scene3D.add(capStart);
   pipeCaps3D.push(capStart);
 
@@ -3086,9 +3086,9 @@ function update3DPipe(calc, angleOverrideDeg = null) {
   const tangEnd = pipeCurve.getTangentAt(1).normalize();
   const ringGeomEnd = new THREE.RingGeometry(innerRadius, pipeRadius, radialSegments);
   const qEnd = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangEnd);
-  ringGeomEnd.applyQuaternion(qEnd);
-  ringGeomEnd.translate(ptEnd.x, ptEnd.y, ptEnd.z);
   const capEnd = new THREE.Mesh(ringGeomEnd, endFaceMat);
+  capEnd.position.copy(ptEnd);
+  capEnd.quaternion.copy(qEnd);
   scene3D.add(capEnd);
   pipeCaps3D.push(capEnd);
 
