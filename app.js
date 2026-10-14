@@ -2987,10 +2987,11 @@ function update3DPipe(calc, angleOverrideDeg = null) {
   }
   pipeGeom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
-  // Extreme fiber values for the 3D legend (elastic theory)
+  // Extreme fiber values for the 3D legend and 3D surface callouts (elastic theory)
+  let epsMax = 0, sigMax = 0;
   if (r_bend > 1e-9 && odM > 0) {
-    const epsMax = (odM / 2) / r_bend; // strain at outer fiber
-    const sigMax = E_MOD * epsMax;     // MPa, elastic fiber stress
+    epsMax = (odM / 2) / r_bend; // strain at outer fiber
+    sigMax = E_MOD * epsMax;     // MPa, elastic fiber stress
     const extTxt = `ε +${(epsMax * 100).toFixed(2)}% · σ ≈ +${sigMax.toFixed(0)} MPa`;
     const intTxt = `ε −${(epsMax * 100).toFixed(2)}% · σ ≈ −${sigMax.toFixed(0)} MPa`;
     if (dom.legend3DValueExt) dom.legend3DValueExt.textContent = spanX > 1e-9 ? extTxt : '—';
@@ -3127,6 +3128,101 @@ function update3DPipe(calc, angleOverrideDeg = null) {
   badgeSprite.scale.set(1.5, 0.48, 1);
   scene3D.add(badgeSprite);
   pipeCaps3D.push(badgeSprite);
+
+  // --- 3D Pipe Surface Stress Callouts (Extrados Çekme & İntrados Basınç) ---
+  if (r_bend > 1e-9 && odM > 0 && Math.abs(thetaRad) > 0.005 && arcCount > 2) {
+    const uMid = (arcStartIndex + arcEndIndex) / (2 * Math.max(1, curvePoints.length - 1));
+    const ptMidArc = pipeCurve.getPointAt(Math.max(0, Math.min(1, uMid)));
+    const bDirVec = new THREE.Vector3(bendDir.x, bendDir.y, bendDir.z).normalize();
+
+    // Helper for stress callout sprite
+    const createStressBadge = (title, valText, subText, borderColor, bgColor, titleColor) => {
+      const sCanvas = document.createElement('canvas');
+      sCanvas.width = 460;
+      sCanvas.height = 140;
+      const sCtx = sCanvas.getContext('2d');
+      sCtx.fillStyle = bgColor;
+      sCtx.roundRect(6, 6, 448, 128, 14);
+      sCtx.fill();
+      sCtx.strokeStyle = borderColor;
+      sCtx.lineWidth = 4;
+      sCtx.stroke();
+      sCtx.fillStyle = titleColor;
+      sCtx.font = 'bold 22px system-ui, -apple-system, sans-serif';
+      sCtx.textAlign = 'center';
+      sCtx.fillText(title, 230, 36);
+      sCtx.fillStyle = '#f8fafc';
+      sCtx.font = 'bold 36px system-ui, -apple-system, sans-serif';
+      sCtx.fillText(valText, 230, 80);
+      sCtx.fillStyle = '#cbd5e1';
+      sCtx.font = '600 20px system-ui, -apple-system, sans-serif';
+      sCtx.fillText(subText, 230, 116);
+
+      const sTex = new THREE.CanvasTexture(sCanvas);
+      const sMat = new THREE.SpriteMaterial({ map: sTex, transparent: true, depthTest: false });
+      const sprite = new THREE.Sprite(sMat);
+      sprite.scale.set(1.4, 0.42, 1);
+      return sprite;
+    };
+
+    // Helper for leader pin line and surface anchor sphere
+    const createStressPin = (ptSurf, ptBadge, pinColor) => {
+      const pGeom = new THREE.BufferGeometry();
+      pGeom.setAttribute('position', new THREE.Float32BufferAttribute([
+        ptSurf.x, ptSurf.y, ptSurf.z,
+        ptBadge.x, ptBadge.y, ptBadge.z
+      ], 3));
+      const pMat = new THREE.LineBasicMaterial({ color: pinColor, linewidth: 2, transparent: true, opacity: 0.85 });
+      const line = new THREE.Line(pGeom, pMat);
+      const dot = new THREE.Mesh(
+        new THREE.SphereGeometry(Math.max(0.015, pipeRadius * 0.04), 8, 8),
+        new THREE.MeshBasicMaterial({ color: pinColor })
+      );
+      dot.position.copy(ptSurf);
+      const pGroup = new THREE.Group();
+      pGroup.add(line);
+      pGroup.add(dot);
+      return pGroup;
+    };
+
+    // A. Extrados (Çekme Lif Tepe Noktası)
+    const ptExtSurf = ptMidArc.clone().addScaledVector(bDirVec, pipeRadius);
+    const ptExtBadge = ptExtSurf.clone().addScaledVector(bDirVec, 0.65);
+    const extPinGroup = createStressPin(ptExtSurf, ptExtBadge, 0xef4444);
+    scene3D.add(extPinGroup);
+    pipeCaps3D.push(extPinGroup);
+
+    const extSprite = createStressBadge(
+      '🔴 EKSTRADOS (ÇEKME LİFİ)',
+      `σ ≈ +${sigMax.toFixed(0)} MPa`,
+      `Maks. Gerinim: ε +${(epsMax * 100).toFixed(2)}%`,
+      '#ef4444',
+      'rgba(26, 10, 10, 0.92)',
+      '#fca5a5'
+    );
+    extSprite.position.copy(ptExtBadge).addScaledVector(bDirVec, 0.22);
+    scene3D.add(extSprite);
+    pipeCaps3D.push(extSprite);
+
+    // B. İntrados (Basınç Lif Tepe Noktası)
+    const ptIntSurf = ptMidArc.clone().addScaledVector(bDirVec, -pipeRadius);
+    const ptIntBadge = ptIntSurf.clone().addScaledVector(bDirVec, -0.65);
+    const intPinGroup = createStressPin(ptIntSurf, ptIntBadge, 0x3b82f6);
+    scene3D.add(intPinGroup);
+    pipeCaps3D.push(intPinGroup);
+
+    const intSprite = createStressBadge(
+      '🔵 İNTRADOS (BASINÇ LİFİ)',
+      `σ ≈ −${sigMax.toFixed(0)} MPa`,
+      `Maks. Basma: ε −${(epsMax * 100).toFixed(2)}%`,
+      '#3b82f6',
+      'rgba(10, 22, 40, 0.92)',
+      '#93c5fd'
+    );
+    intSprite.position.copy(ptIntBadge).addScaledVector(bDirVec, -0.22);
+    scene3D.add(intSprite);
+    pipeCaps3D.push(intSprite);
+  }
   
   // Internal Hydraulic Mandrel Mesh (Placed accurately inside the bent arc)
   if (mandrelShown) {
