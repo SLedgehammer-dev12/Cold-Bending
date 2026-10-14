@@ -1416,6 +1416,26 @@ body {
   pointer-events: none;
 }
 
+.camera-preset-group-3d {
+  display: flex;
+  gap: 3px;
+}
+
+.btn-cam-preset {
+  flex: 1;
+  text-align: center;
+  padding: 5px 6px;
+  font-size: 0.70rem;
+  letter-spacing: 0.02em;
+}
+
+.btn-cam-preset.active {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.45);
+}
+
 .step-btn-group-3d {
   display: flex;
   gap: 4px;

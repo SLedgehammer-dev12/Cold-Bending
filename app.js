@@ -274,6 +274,10 @@ const dom = {
   // 3D Controls
   container3D: document.getElementById('container3D'),
   loading3D: document.getElementById('loading3D'),
+  btnCamIso: document.getElementById('btnCamIso'),
+  btnCamTop: document.getElementById('btnCamTop'),
+  btnCamSide: document.getElementById('btnCamSide'),
+  btnCamFront: document.getElementById('btnCamFront'),
   btn3dResetCam: document.getElementById('btn3dResetCam'),
   btn3dToggleMandrel: document.getElementById('btn3dToggleMandrel'),
   btn3dToggleSeam: document.getElementById('btn3dToggleSeam'),
@@ -2626,6 +2630,62 @@ function tune3DLights(isLight) {
     hemi.groundColor.set(0x0b0f19);
     if (renderer3D) renderer3D.toneMappingExposure = 1.12;
   }
+}
+
+let currentCameraPreset = 'iso';
+
+function updateCameraPresetUI(presetName) {
+  currentCameraPreset = presetName;
+  const map = {
+    iso: dom.btnCamIso,
+    top: dom.btnCamTop,
+    side: dom.btnCamSide,
+    front: dom.btnCamFront
+  };
+  Object.keys(map).forEach((k) => {
+    const btn = map[k];
+    if (btn) {
+      if (k === presetName) btn.classList.add('active');
+      else btn.classList.remove('active');
+    }
+  });
+}
+
+function set3DCameraPreset(presetName) {
+  if (!camera3D || !controls3D) return;
+  const w = (dom.container3D && dom.container3D.clientWidth) || 800;
+  const h = (dom.container3D && dom.container3D.clientHeight) || 480;
+  const tanV = Math.tan((camera3D.fov * Math.PI) / 360);
+  const dist = Math.max(10, (state.length / 2 + 2.5) / (tanV * (w / h)));
+  const c = pipeCenter3D || { x: 0, y: 0, z: 0 };
+
+  camera3D.up.set(0, 1, 0);
+
+  if (presetName === 'top') {
+    // Üstten (Plan Görünümü): Kuşbakışı Z aşağı, X sağa
+    camera3D.up.set(0, 0, -1);
+    controls3D.target.set(c.x, c.y, c.z);
+    camera3D.position.set(c.x, c.y + dist * 1.15, c.z);
+  } else if (presetName === 'side') {
+    // Yandan (Profil / Kavis Görünümü): Y yukarı, X sağa
+    controls3D.target.set(c.x, c.y, c.z);
+    camera3D.position.set(c.x, c.y, c.z + dist * 1.15);
+  } else if (presetName === 'front') {
+    // Önden (Boru Ağzı / Kesit Görünümü): Boru ön ağzına doğru bakış
+    const frontPt = bendCurve3D && bendCurve3D.curve ? bendCurve3D.curve.getPointAt(0) : { x: -state.length / 2, y: 0, z: 0 };
+    controls3D.target.set(frontPt.x, frontPt.y, frontPt.z);
+    const closeDist = Math.max(3.2, (state.od / 1000) * 4.8);
+    camera3D.position.set(frontPt.x - closeDist, frontPt.y + closeDist * 0.22, frontPt.z);
+  } else {
+    // İzometrik (Varsayılan 3D)
+    controls3D.target.set(c.x, c.y, c.z);
+    const dir = new THREE.Vector3(1, 0.45, 1).normalize();
+    camera3D.position.copy(controls3D.target).addScaledVector(dir, dist);
+  }
+
+  controls3D.update();
+  camera3D.updateProjectionMatrix();
+  updateCameraPresetUI(presetName);
 }
 
 // Fit the camera distance to the pipe length along the current view
@@ -5764,9 +5824,22 @@ function setupEventListeners() {
   });
 
   // 3D Control Buttons
+  if (dom.btnCamIso) {
+    dom.btnCamIso.addEventListener('click', () => set3DCameraPreset('iso'));
+  }
+  if (dom.btnCamTop) {
+    dom.btnCamTop.addEventListener('click', () => set3DCameraPreset('top'));
+  }
+  if (dom.btnCamSide) {
+    dom.btnCamSide.addEventListener('click', () => set3DCameraPreset('side'));
+  }
+  if (dom.btnCamFront) {
+    dom.btnCamFront.addEventListener('click', () => set3DCameraPreset('front'));
+  }
+
   dom.btn3dResetCam.addEventListener('click', () => {
     if (camera3D && controls3D) {
-      frameCameraToPipe();
+      set3DCameraPreset('iso');
     }
   });
 
