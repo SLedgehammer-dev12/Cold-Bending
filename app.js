@@ -2708,14 +2708,16 @@ function update3DPipe(calc, angleOverrideDeg = null) {
   let arcEndIndex = 0;
   let x_pc = 0;
   let pt_last = null;
-  const activeBendType = state.isTreeBendMode ? 'sidebend_left' : state.bendType;
+  const activeBendType = state.isTreeBendMode ? 'sidebend_right' : state.bendType;
 
-  const isFeedThrough = bendAnim.active && !state.isTreeBendMode;
+  const isFeedThrough = bendAnim.active || state.isTreeBendMode;
 
   if (isFeedThrough) {
-    // KINEMATIC REALISM: Stationary Bending Machine at (0,0,0) & Feed-Through Pipe
-    // Pipe feeds from -X into machine die at (0,0,0). Bent arc emerges into +X.
-    const kStep = Math.max(1, Math.min(calc.numPulls, bendAnim.step || 1));
+    // KINEMATIC REALISM: Stationary Bending Machine / Fixed Tree at (0,0,0) & Feed-Through Pipe
+    // Pipe feeds from -X into machine die / tree contact at (0,0,0). Bent arc emerges into +X, +Z.
+    const kStep = state.isTreeBendMode && !bendAnim.active
+      ? calc.numPulls
+      : Math.max(1, Math.min(calc.numPulls, bendAnim.step || 1));
     const s_k = pbStart + kStep * calc.pullStepPitch; // distance from front tip to active pull station
     const l_arc_k = kStep * calc.pullStepPitch;       // realized bent arc length so far
     const l_rear = Math.max(0, totalLength - s_k);    // unbent tail behind the die
@@ -3584,41 +3586,35 @@ function updateTreeBendSceneAt(calc, stepIndex) {
   if (!treeBendGroup3D || !treeBendGroup3D.userData) return;
   const ud = treeBendGroup3D.userData;
   const pr = ud.pr;
-  const totalLength = state.length;
-  const startX = -totalLength / 2;
-  const pbStart = calc.pullStartM;
 
-  // Midpoint of bend arc for fixed tree positioning
-  const midArcDist = pbStart + (calc.l_arc_m || 8) / 2;
-  const treeX = startX + midArcDist;
-
-  // Tree stands fixed on ground, touching pipe intrados
+  // Sturdy tree stands anchored at (0, 0, treeZ) touching pipe intrados at (0, 0, -pr)
+  const treeX = 0;
   const treeZ = -(ud.treeR + pr);
   ud.treeGroup.position.set(treeX, 0, treeZ);
 
-  // Field foreman standing safely behind the tree (further in -Z)
-  // Absolutely no clipping with the pipe at any deflection angle
+  // Field foreman stands safely behind the anchored tree trunk (in -Z)
+  // Absolutely zero clipping with the pipe at any deflection angle
   const workerZ = treeZ - ud.treeR - 1.2;
-  const workerX = treeX + ud.treeR + 0.85;
+  const workerX = 1.2;
   ud.workerGroup.position.set(workerX, ud.groundY, workerZ);
   ud.workerGroup.rotation.y = -Math.PI * 0.22;
 
   // Position excavators at pipe ends with exact zero-offset clamp lock
   if (bendCurve3D && bendCurve3D.curve) {
-    const ptStart = bendCurve3D.curve.getPointAt(0);
-    const ptEnd = bendCurve3D.curve.getPointAt(1);
-    const tangEnd = bendCurve3D.curve.getTangentAt(1).normalize();
+    const ptStart = bendCurve3D.curve.getPointAt(0); // Front tip of pipe (emerging bent pipe)
+    const ptEnd = bendCurve3D.curve.getPointAt(1);   // Rear tip of pipe (unbent tail)
+    const tangStart = bendCurve3D.curve.getTangentAt(0).normalize();
     const R_reach = ud.R_reach || 5.2;
 
-    // Left excavator holding pipe start
-    ud.excavatorLeft.position.set(ptStart.x - R_reach, ud.groundY, ptStart.z);
-    ud.excavatorLeft.rotation.y = 0;
+    // Right excavator holding pipe front (bending and pulling into +X, +Z):
+    const excFrontX = ptStart.x + R_reach * tangStart.x;
+    const excFrontZ = ptStart.z + R_reach * tangStart.z;
+    ud.excavatorRight.position.set(excFrontX, ud.groundY, excFrontZ);
+    ud.excavatorRight.rotation.y = Math.atan2(-tangStart.z, -tangStart.x);
 
-    // Right excavator holding pipe end
-    const excRx = ptEnd.x + R_reach * tangEnd.x;
-    const excRz = ptEnd.z + R_reach * tangEnd.z;
-    ud.excavatorRight.position.set(excRx, ud.groundY, excRz);
-    ud.excavatorRight.rotation.y = Math.atan2(-tangEnd.z, -tangEnd.x);
+    // Left excavator holding pipe rear (feeding and supporting straight tail at -X):
+    ud.excavatorLeft.position.set(ptEnd.x - R_reach, ud.groundY, ptEnd.z);
+    ud.excavatorLeft.rotation.y = 0;
   }
 
   // Thumbs up logic when bend is completed!
