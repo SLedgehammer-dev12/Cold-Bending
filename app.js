@@ -5,7 +5,7 @@
 
 // Single source of truth for the app version
 // (must match UI badge, package.json, electron shell, release tag).
-const APP_VERSION = '2.6.1';
+const APP_VERSION = '2.6.2';
 const UPDATE_API_URL = 'https://api.github.com/repos/SLedgehammer-dev12/Cold-Bending/releases/latest';
 const UPDATE_CACHE_KEY = 'coldbend_update_cache';
 const UPDATE_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // silent auto-check at most once a day
