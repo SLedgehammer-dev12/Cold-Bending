@@ -2,6 +2,39 @@
 
 Tüm önemli değişiklikler bu dosyada izlenir. Sürüm biçimi `MAJOR.MINOR.PATCH`.
 
+## [2.6.2] — 2026-10-15
+
+Yeni Özellikler & 3D Stüdyo Araçları: JSON Proje Yükleme, 3D Snapshot, Tam Ekran & Kısayollar, DXF ASME Başlık Bloğu.
+
+### Eklenen
+- **JSON Proje Dosyası İçe Aktarma (`#btnImportJSON`):** Önceden kaydedilmiş büküm projelerini tek tıkla geri yükleme; tam ASME şeması ve doğrudan durum yedeklerini normalleştirip anında yeniden hesaplama.
+- **3D Yüksek Çözünürlüklü PNG Snapshot (`#btn3dSnapshot`, `P` kısayolu):** Şeffaf arka plan ve yüksek kaliteli WebGL sahne görüntüsü indirme.
+- **3D Tam Ekran CAD Modu (`#btn3dFullscreen`, `F` kısayolu / Çift Tıklama):** 3D modelleme alanında tam ekran çalışma.
+- **3D Stüdyo Klavye Kısayolları:** `Space` (oynat/duraklat), `Sağ Ok`/`Sol Ok` (adım adım büküm), `Home`/`End` (başlangıç/son adım), `1-4` (kamera önayarları).
+- **3D Hızlı Kamera Açı Önayarları:** İzometrik, Üst (Plan), Yan (Profil), Ön (Boru Ağzı) butonları.
+- **AutoCAD DXF İmalat Ölçülendirmesi & ASME Başlık Bloğu:** `DIMENSIONS` katmanında ölçü entity'leri ve `TITLE_BLOCK` katmanında 7 satırlı resmi ASME B31.8 / B31.4 uygunluk tablosu.
+- **3D Zaman Çizelgesi (Scrubber) & İki Yönlü Kontroller:** Paso tablosu ve 3D büküm kinematiği arasında canlı senkronizasyon.
+
+### Düzeltilen
+- **Pürüzsüz SAWH Spiral Kaynak Dikişi:** Paralel transport çatısı ve uyarlanabilir yoğunluk ile boru gövdesinde kesintisiz dikiş.
+- **İntrados / Ekstrados Oryantasyonu:** 3D model ve lejantta çekme/basma gerilme yönleri 180° düzeltildi.
+
+### Korunan (regresyon yok)
+- Çekirdek formüller (incelme, kalınlaşma, geri-yaylanma, ovallik-mandrel, fiber-gerilme), ID bağlantıları, TR arayüz, dark/light tema, A4 baskı.
+
+## [2.6.1] — 2026-10-14
+
+Hotfix & Etkileşim İyileştirmeleri: Mouse Roller Kaydırma Kilidi Çözümü ve 3D Sabit Büküm Kinematiği.
+
+### Eklenen
+- **Çizim Alanı Tekerlek Serbestisi:** Fare imleci 2D/3D alanlardayken doğal sayfa kaydırma, `Ctrl`/`Cmd` ile yakınlaştırma.
+- **Sabit Büküm Makinesi Kinematiği:** $C^1$ boru ilerlemesi ve hidrolik ram döngüsü.
+- **İnteraktif Hesaplama Popover'ları (ⓘ):** ASME formül türevleri ve tolerans limitleri.
+- **Şantiye As-Built Ölçüm & QC Tolerans Paneli:** Saha ölçümleri ve kabul kaşesi.
+
+### Korunan (regresyon yok)
+- Çekirdek formüller ve `updateUI()` zinciri, ID bağlantıları, A4 baskı.
+
 ## [2.6.0] — 2026-10-13
 
 Kapsamlı 10-Aşamalı Mühendislik ve Saha QC Güncellemesi, Açık/Koyu Tema Okunurluk İyileştirmesi ve Sürüm Birliği v2.6.0.
