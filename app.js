@@ -3275,10 +3275,19 @@ function buildTreeBendScene(pr, calc) {
   const glassMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.1, metalness: 0.9, transparent: true, opacity: 0.75 });
   const skinMat = new THREE.MeshStandardMaterial({ color: 0xfde047, roughness: 0.8 });
   const vestMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.5, metalness: 0.1 });
+  const vestLimeMat = new THREE.MeshStandardMaterial({ color: 0x84cc16, roughness: 0.5, metalness: 0.1 });
+  const vestBlueMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.6, metalness: 0.1 });
   const reflectiveStripeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.2, metalness: 0.8, emissive: 0xf8fafc, emissiveIntensity: 0.4 });
   const hardHatMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.3, metalness: 0.4 });
+  const hardHatWhiteMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3, metalness: 0.3 });
+  const hardHatOrangeMat = new THREE.MeshStandardMaterial({ color: 0xea580c, roughness: 0.3, metalness: 0.4 });
   const pantsMat = new THREE.MeshStandardMaterial({ color: 0x1e3a5f, roughness: 0.8 });
   const bootsMat = new THREE.MeshStandardMaterial({ color: 0x27272a, roughness: 0.9 });
+  const phoneBodyMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.2, metalness: 0.8 });
+  const phoneScreenMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.2, emissive: 0x38bdf8, emissiveIntensity: 0.8 });
+  const recLedMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+  const clipboardMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.8 });
+  const paperMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.9 });
 
   // 1. ANCHORED STURDY TREE (Sabit Ağaç - Boruya orantılı daha kalın gövdeli)
   const treeGroup = new THREE.Group();
@@ -3317,90 +3326,185 @@ function buildTreeBendScene(pr, calc) {
 
   group.add(treeGroup);
 
-  // 2. FIELD WORKER (Şantiye Kıyafetli İnsan - 68" / 1.72m Boy, 2/3 Gövde Oranı)
-  const workerGroup = new THREE.Group();
-
-  // Boots
+  // 2. FIELD CREW (Şantiye Ekibi - 68" / 1.72m Boy, 2/3 Gövde Oranı)
+  // Shared Human Geometries
   const bootGeom = new THREE.BoxGeometry(0.10, 0.08, 0.22);
-  const leftBoot = new THREE.Mesh(bootGeom, bootsMat);
-  leftBoot.position.set(-0.09, 0.04, 0.03);
-  workerGroup.add(leftBoot);
-  const rightBoot = new THREE.Mesh(bootGeom, bootsMat);
-  rightBoot.position.set(0.09, 0.04, 0.03);
-  workerGroup.add(rightBoot);
-
-  // Legs (İş pantolonu)
   const legGeom = new THREE.CylinderGeometry(0.06, 0.065, 0.76, 8);
-  const leftLeg = new THREE.Mesh(legGeom, pantsMat);
-  leftLeg.position.set(-0.09, 0.46, 0);
-  workerGroup.add(leftLeg);
-  const rightLeg = new THREE.Mesh(legGeom, pantsMat);
-  rightLeg.position.set(0.09, 0.46, 0);
-  workerGroup.add(rightLeg);
-
-  // Torso & Reflective Safety Vest (2/3 oranında gövde: 0.25m x 0.16m x 0.52m)
   const torsoGeom = new THREE.BoxGeometry(0.25, 0.52, 0.16);
-  const torso = new THREE.Mesh(torsoGeom, vestMat);
-  torso.position.set(0, 1.10, 0);
-  workerGroup.add(torso);
-
-  // Reflective stripes
-  const stripeH = new THREE.Mesh(new THREE.BoxGeometry(0.256, 0.05, 0.166), reflectiveStripeMat);
-  stripeH.position.set(0, 1.05, 0);
-  workerGroup.add(stripeH);
-  const stripeV1 = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.24, 0.166), reflectiveStripeMat);
-  stripeV1.position.set(-0.07, 1.22, 0);
-  workerGroup.add(stripeV1);
-  const stripeV2 = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.24, 0.166), reflectiveStripeMat);
-  stripeV2.position.set(0.07, 1.22, 0);
-  workerGroup.add(stripeV2);
-
-  // Head & Hard Hat (Sarı Baret - Toplam Boy: 1.72m / 68")
+  const stripeHGeom = new THREE.BoxGeometry(0.256, 0.05, 0.166);
+  const stripeVGeom = new THREE.BoxGeometry(0.04, 0.24, 0.166);
   const neckGeom = new THREE.CylinderGeometry(0.045, 0.05, 0.06, 8);
-  const neck = new THREE.Mesh(neckGeom, skinMat);
-  neck.position.set(0, 1.39, 0);
-  workerGroup.add(neck);
-
   const headGeom = new THREE.SphereGeometry(0.10, 10, 8);
-  const head = new THREE.Mesh(headGeom, skinMat);
-  head.position.set(0, 1.48, 0);
-  workerGroup.add(head);
+  const hatDomeGeom = new THREE.SphereGeometry(0.12, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.5);
+  const hatBrimGeom = new THREE.CylinderGeometry(0.15, 0.15, 0.018, 12);
+  const armGeom = new THREE.CylinderGeometry(0.04, 0.04, 0.52, 8);
 
-  const hatDome = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.5), hardHatMat);
-  hatDome.position.set(0, 1.52, 0);
-  workerGroup.add(hatDome);
-  const hatBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.018, 12), hardHatMat);
-  hatBrim.position.set(0, 1.50, 0.02);
-  workerGroup.add(hatBrim);
+  function createBaseHuman(vestMaterial, hatMaterial, pantsMaterial = pantsMat) {
+    const hGroup = new THREE.Group();
 
-  // Left Arm
-  const leftArm = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.52, 8), vestMat);
+    // Boots
+    const leftBoot = new THREE.Mesh(bootGeom, bootsMat);
+    leftBoot.position.set(-0.09, 0.04, 0.03);
+    hGroup.add(leftBoot);
+    const rightBoot = new THREE.Mesh(bootGeom, bootsMat);
+    rightBoot.position.set(0.09, 0.04, 0.03);
+    hGroup.add(rightBoot);
+
+    // Legs
+    const leftLeg = new THREE.Mesh(legGeom, pantsMaterial);
+    leftLeg.position.set(-0.09, 0.46, 0);
+    hGroup.add(leftLeg);
+    const rightLeg = new THREE.Mesh(legGeom, pantsMaterial);
+    rightLeg.position.set(0.09, 0.46, 0);
+    hGroup.add(rightLeg);
+
+    // Torso & Reflective Safety Vest
+    const torso = new THREE.Mesh(torsoGeom, vestMaterial);
+    torso.position.set(0, 1.10, 0);
+    hGroup.add(torso);
+
+    const stripeH = new THREE.Mesh(stripeHGeom, reflectiveStripeMat);
+    stripeH.position.set(0, 1.05, 0);
+    hGroup.add(stripeH);
+    const stripeV1 = new THREE.Mesh(stripeVGeom, reflectiveStripeMat);
+    stripeV1.position.set(-0.07, 1.22, 0);
+    hGroup.add(stripeV1);
+    const stripeV2 = new THREE.Mesh(stripeVGeom, reflectiveStripeMat);
+    stripeV2.position.set(0.07, 1.22, 0);
+    hGroup.add(stripeV2);
+
+    // Head & Hard Hat
+    const neck = new THREE.Mesh(neckGeom, skinMat);
+    neck.position.set(0, 1.39, 0);
+    hGroup.add(neck);
+    const head = new THREE.Mesh(headGeom, skinMat);
+    head.position.set(0, 1.48, 0);
+    hGroup.add(head);
+
+    const hatDome = new THREE.Mesh(hatDomeGeom, hatMaterial);
+    hatDome.position.set(0, 1.52, 0);
+    hGroup.add(hatDome);
+    const hatBrim = new THREE.Mesh(hatBrimGeom, hatMaterial);
+    hatBrim.position.set(0, 1.50, 0.02);
+    hGroup.add(hatBrim);
+
+    return hGroup;
+  }
+
+  // A. Şantiye Şefi (Foreman - Başparmak Havada / Thumbs-up)
+  const workerGroup = createBaseHuman(vestMat, hardHatMat);
+  const leftArm = new THREE.Mesh(armGeom, vestMat);
   leftArm.position.set(-0.16, 1.08, 0);
   leftArm.rotation.z = 0.12;
   workerGroup.add(leftArm);
 
-  // Right Arm (Articulated for Thumbs-Up 👍)
   const rightArmPivot = new THREE.Group();
   rightArmPivot.position.set(0.16, 1.30, 0);
-
   const rightArmMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.04, 0.48, 8), vestMat);
   rightArmMesh.position.set(0, -0.22, 0);
   rightArmPivot.add(rightArmMesh);
-
-  // Fist & Upward Thumb
   const fistMesh = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), skinMat);
   fistMesh.position.set(0, -0.48, 0);
   rightArmPivot.add(fistMesh);
-
   const thumbMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.09, 6), skinMat);
   thumbMesh.position.set(0.03, -0.44, 0.03);
   thumbMesh.rotation.z = -0.5;
   thumbMesh.rotation.x = -0.4;
   rightArmPivot.add(thumbMesh);
-
   workerGroup.add(rightArmPivot);
   workerGroup.position.set(0, groundY, 0);
   group.add(workerGroup);
+
+  // B. Şantiye Kontrolörü / Mühendis (Inspector - Akıllı Telefonla Video Kaydı Alan)
+  const inspectorGroup = createBaseHuman(vestLimeMat, hardHatWhiteMat);
+  const inspLeftArm = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.038, 0.42, 8), vestLimeMat);
+  inspLeftArm.position.set(-0.14, 1.25, 0.14);
+  inspLeftArm.rotation.set(Math.PI * 0.38, 0, -Math.PI * 0.22);
+  inspectorGroup.add(inspLeftArm);
+  const inspRightArm = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.038, 0.42, 8), vestLimeMat);
+  inspRightArm.position.set(0.14, 1.25, 0.14);
+  inspRightArm.rotation.set(Math.PI * 0.38, 0, Math.PI * 0.22);
+  inspectorGroup.add(inspRightArm);
+
+  // Akıllı Telefon Modeli (Yatay video kaydı duruşu, parlayan ekran & kırmızı REC ışığı)
+  const phoneHolder = new THREE.Group();
+  phoneHolder.position.set(0, 1.38, 0.30);
+  const phoneBody = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.075, 0.012), phoneBodyMat);
+  phoneHolder.add(phoneBody);
+  const phoneScreen = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.065, 0.003), phoneScreenMat);
+  phoneScreen.position.set(0, 0, -0.006);
+  phoneHolder.add(phoneScreen);
+  const phoneLens = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.008, 8), darkSteelMat);
+  phoneLens.rotation.x = Math.PI / 2;
+  phoneLens.position.set(-0.04, 0.015, 0.007);
+  phoneHolder.add(phoneLens);
+  const recLed = new THREE.Mesh(new THREE.SphereGeometry(0.005, 6, 6), recLedMat);
+  recLed.position.set(0.045, 0.018, 0.007);
+  phoneHolder.add(recLed);
+  const handL = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 6), skinMat);
+  handL.position.set(-0.075, 0, 0);
+  phoneHolder.add(handL);
+  const handR = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 6), skinMat);
+  handR.position.set(0.075, 0, 0);
+  phoneHolder.add(handR);
+  inspectorGroup.add(phoneHolder);
+  inspectorGroup.position.set(0, groundY, 0);
+  group.add(inspectorGroup);
+
+  // C. Saha İşçisi 1 (Giriş & Kaynak Dikişi Gözlemcisi)
+  const workerTailGroup = createBaseHuman(vestBlueMat, hardHatMat);
+  const tailArmL = new THREE.Mesh(armGeom, vestBlueMat);
+  tailArmL.position.set(-0.16, 1.08, 0);
+  tailArmL.rotation.z = 0.15;
+  workerTailGroup.add(tailArmL);
+  const tailArmR = new THREE.Mesh(armGeom, vestBlueMat);
+  tailArmR.position.set(0.16, 1.08, 0);
+  tailArmR.rotation.z = -0.15;
+  workerTailGroup.add(tailArmR);
+  workerTailGroup.position.set(0, groundY, 0);
+  group.add(workerTailGroup);
+
+  // D. Saha İşçisi 2 (Ağaç Temas & Deformasyon Kontrolcüsü - Elinde Kontrol Panosu)
+  const workerTreeGroup = createBaseHuman(vestMat, hardHatOrangeMat);
+  const treeArmL = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.038, 0.42, 8), vestMat);
+  treeArmL.position.set(-0.14, 1.18, 0.12);
+  treeArmL.rotation.set(Math.PI * 0.32, 0, -Math.PI * 0.15);
+  workerTreeGroup.add(treeArmL);
+  const treeArmR = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.038, 0.42, 8), vestMat);
+  treeArmR.position.set(0.14, 1.18, 0.12);
+  treeArmR.rotation.set(Math.PI * 0.32, 0, Math.PI * 0.15);
+  workerTreeGroup.add(treeArmR);
+  const clipboardGroup = new THREE.Group();
+  clipboardGroup.position.set(0, 1.15, 0.25);
+  clipboardGroup.rotation.set(Math.PI * 0.25, 0, 0);
+  const boardMesh = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.22, 0.01), clipboardMat);
+  clipboardGroup.add(boardMesh);
+  const sheetMesh = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.19, 0.003), paperMat);
+  sheetMesh.position.set(0, -0.01, 0.006);
+  clipboardGroup.add(sheetMesh);
+  workerTreeGroup.add(clipboardGroup);
+  workerTreeGroup.position.set(0, groundY, 0);
+  group.add(workerTreeGroup);
+
+  // E. Saha İşçisi 3 (Çekici Ekskavatör İşaretçisi / Rigger)
+  const workerSignalGroup = createBaseHuman(vestMat, hardHatMat);
+  const signalArmLPivot = new THREE.Group();
+  signalArmLPivot.position.set(-0.16, 1.30, 0);
+  const sArmL = new THREE.Mesh(armGeom, vestMat);
+  sArmL.position.set(0, 0.24, 0);
+  signalArmLPivot.add(sArmL);
+  signalArmLPivot.rotation.z = Math.PI * 0.40;
+  workerSignalGroup.add(signalArmLPivot);
+
+  const signalArmRPivot = new THREE.Group();
+  signalArmRPivot.position.set(0.16, 1.30, 0);
+  const sArmR = new THREE.Mesh(armGeom, vestMat);
+  sArmR.position.set(0, 0.24, 0);
+  signalArmRPivot.add(sArmR);
+  signalArmRPivot.rotation.z = -Math.PI * 0.40;
+  workerSignalGroup.add(signalArmRPivot);
+  workerSignalGroup.position.set(0, groundY, 0);
+  group.add(workerSignalGroup);
 
   // 3. EXCAVATORS (CAT 330 Sınıfı Boru Hattı Ekskavatörü & Sıfır Sapmalı Boru Kıskacı)
   const R_reach = 5.2; // Kol uzanma mesafesi (merkezden boru kıskacı eksenine)
@@ -3573,6 +3677,12 @@ function buildTreeBendScene(pr, calc) {
     groundY,
     workerGroup,
     rightArmPivot,
+    inspectorGroup,
+    workerTailGroup,
+    workerTreeGroup,
+    workerSignalGroup,
+    signalArmLPivot,
+    signalArmRPivot,
     excavatorLeft,
     excavatorRight,
     R_reach,
@@ -3592,14 +3702,31 @@ function updateTreeBendSceneAt(calc, stepIndex) {
   const treeZ = -(ud.treeR + pr);
   ud.treeGroup.position.set(treeX, 0, treeZ);
 
-  // Field foreman stands safely behind the anchored tree trunk (in -Z)
+  // 1. Field foreman stands safely behind the anchored tree trunk (in -Z)
   // Absolutely zero clipping with the pipe at any deflection angle
   const workerZ = treeZ - ud.treeR - 1.2;
   const workerX = 1.2;
   ud.workerGroup.position.set(workerX, ud.groundY, workerZ);
   ud.workerGroup.rotation.y = -Math.PI * 0.22;
 
-  // Position excavators at pipe ends with exact zero-offset clamp lock
+  // 2. Site Inspector (Şantiye Kontrolörü) recording video with phone
+  // Stands with wide unobstructed vantage point aiming smartphone directly at the tree-pipe bend zone
+  if (ud.inspectorGroup) {
+    const inspX = 3.2;
+    const inspZ = treeZ - ud.treeR - 1.4;
+    ud.inspectorGroup.position.set(inspX, ud.groundY, inspZ);
+    ud.inspectorGroup.rotation.y = Math.atan2(-inspX, -( -pr - inspZ));
+  }
+
+  // 3. Worker 2 (Ağaç / Temas Gözlemcisi) inspecting clearance on the opposite flank of the tree
+  if (ud.workerTreeGroup) {
+    const treeObsX = -1.8;
+    const treeObsZ = treeZ - ud.treeR - 0.8;
+    ud.workerTreeGroup.position.set(treeObsX, ud.groundY, treeObsZ);
+    ud.workerTreeGroup.rotation.y = Math.atan2(0 - treeObsX, -pr - treeObsZ);
+  }
+
+  // 4. Excavators and dynamic workers (Tail worker & Signaler worker)
   if (bendCurve3D && bendCurve3D.curve) {
     const ptStart = bendCurve3D.curve.getPointAt(0); // Front tip of pipe (emerging bent pipe)
     const ptEnd = bendCurve3D.curve.getPointAt(1);   // Rear tip of pipe (unbent tail)
@@ -3615,25 +3742,49 @@ function updateTreeBendSceneAt(calc, stepIndex) {
     // Left excavator holding pipe rear (feeding and supporting straight tail at -X):
     ud.excavatorLeft.position.set(ptEnd.x - R_reach, ud.groundY, ptEnd.z);
     ud.excavatorLeft.rotation.y = 0;
+
+    // Worker 1 (Tail / Infeed Seam Observer): stands near straight pipe tail
+    if (ud.workerTailGroup) {
+      const tailX = Math.min(-3.6, ptEnd.x + 2.4);
+      ud.workerTailGroup.position.set(tailX, ud.groundY, -1.8);
+      ud.workerTailGroup.rotation.y = Math.PI * 0.45;
+    }
+
+    // Worker 3 (Front Rigging Signaler): stands at safe lateral offset guiding front excavator operator
+    if (ud.workerSignalGroup) {
+      const sigX = ptStart.x - 2.6 * tangStart.z;
+      const sigZ = ptStart.z + 2.6 * tangStart.x;
+      ud.workerSignalGroup.position.set(sigX, ud.groundY, sigZ);
+      ud.workerSignalGroup.rotation.y = Math.atan2(excFrontX - sigX, excFrontZ - sigZ);
+    }
   }
 
-  // Thumbs up logic when bend is completed!
+  // Thumbs up and crew reaction logic when bend is completed!
   const isComplete = (stepIndex >= calc.numPulls);
   if (isComplete) {
     // Raise arm and give prominent THUMBS UP! 👍
     ud.rightArmPivot.rotation.x = -Math.PI * 0.52;
     ud.rightArmPivot.rotation.y = 0.25;
     ud.rightArmPivot.rotation.z = -0.15;
+    if (ud.signalArmLPivot && ud.signalArmRPivot) {
+      ud.signalArmLPivot.rotation.z = Math.PI * 0.18;
+      ud.signalArmRPivot.rotation.z = -Math.PI * 0.18;
+    }
     if (dom.badgeEasterEggThumbsUp) {
       dom.badgeEasterEggThumbsUp.style.display = 'inline-block';
-      dom.badgeEasterEggThumbsUp.textContent = '👷 Şantiye Şefi: Tamamdır Usta! 👍';
+      dom.badgeEasterEggThumbsUp.textContent = '👷 Şantiye Ekibi: Tamamdır Usta! 👍 📱 Kayıt Alındı';
     }
   } else {
-    // Directing arm gesture during bending
+    // Directing arm gestures during bending
     const wave = Math.sin((stepIndex || 1) * 1.8) * 0.35;
     ud.rightArmPivot.rotation.x = -0.45 + wave;
     ud.rightArmPivot.rotation.y = 0.4;
     ud.rightArmPivot.rotation.z = -0.2;
+    if (ud.signalArmLPivot && ud.signalArmRPivot) {
+      const sigWave = Math.sin((stepIndex || 1) * 2.4) * 0.22;
+      ud.signalArmLPivot.rotation.z = Math.PI * 0.40 + sigWave;
+      ud.signalArmRPivot.rotation.z = -Math.PI * 0.40 - sigWave;
+    }
     if (dom.badgeEasterEggThumbsUp) {
       dom.badgeEasterEggThumbsUp.style.display = 'none';
     }
