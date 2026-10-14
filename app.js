@@ -1686,11 +1686,13 @@ function generateDXFContent(calc) {
   add(49, 15.0); add(49, -4.0); add(49, 2.0); add(49, -4.0);
   add(0, 'ENDTAB');
   
-  add(0, 'TABLE'); add(2, 'LAYER'); add(70, 5);
+  add(0, 'TABLE'); add(2, 'LAYER'); add(70, 7);
   add(0, 'LAYER'); add(2, 'CENTERLINE'); add(70, 0); add(62, 3); add(6, 'CENTER'); // Green
   add(0, 'LAYER'); add(2, 'PIPE_WALL'); add(70, 0); add(62, 7); add(6, 'CONTINUOUS'); // White
+  add(0, 'LAYER'); add(2, 'DIMENSIONS'); add(70, 0); add(62, 6); add(6, 'CONTINUOUS'); // Magenta
   add(0, 'LAYER'); add(2, 'PULL_STATIONS'); add(70, 0); add(62, 4); add(6, 'CONTINUOUS'); // Cyan
   add(0, 'LAYER'); add(2, 'MARKERS'); add(70, 0); add(62, 2); add(6, 'CONTINUOUS'); // Yellow
+  add(0, 'LAYER'); add(2, 'TITLE_BLOCK'); add(70, 0); add(62, 4); add(6, 'CONTINUOUS'); // Cyan
   add(0, 'LAYER'); add(2, 'ANNOTATIONS'); add(70, 0); add(62, 1); add(6, 'CONTINUOUS'); // Red
   add(0, 'ENDTAB');
   add(0, 'ENDSEC');
@@ -1719,13 +1721,16 @@ function generateDXFContent(calc) {
     add(40, f(r));
   };
   
-  const textEntity = (layer, x, y, height, text) => {
+  const textEntity = (layer, x, y, height, text, angleDeg = 0) => {
     add(0, 'TEXT'); add(8, layer);
     add(10, f(x)); add(20, f(y)); add(30, '0.0');
     add(40, f(height));
+    if (angleDeg !== 0) {
+      add(50, f(angleDeg));
+    }
     add(1, String(text));
   };
-  
+
   const od_mm = state.od;
   const r_pipe = od_mm / 2;
   const t1_mm = calc.pullStartM * 1000;
@@ -1733,6 +1738,43 @@ function generateDXFContent(calc) {
   const theta_deg = state.targetAngle;
   const theta_rad = (theta_deg * Math.PI) / 180;
   const t2draw_mm = Math.max(state.tangent2, state.length - calc.pullStartM - calc.r_bend_m * theta_rad) * 1000;
+  const txtH = Math.max(80, r_pipe * 0.35);
+
+  const dimLinear = (layer, x1, y1, x2, y2, offset, label, angleDeg = 0) => {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.hypot(dx, dy);
+    if (len < 1e-4) return;
+    const ux = dx / len;
+    const uy = dy / len;
+    const nx = -uy;
+    const ny = ux;
+    
+    const p1x = x1 + nx * offset;
+    const p1y = y1 + ny * offset;
+    const p2x = x2 + nx * offset;
+    const p2y = y2 + ny * offset;
+    
+    // Extension witness lines
+    const extOver = Math.sign(offset || 1) * 80;
+    lineEntity(layer, x1, y1, p1x + nx * extOver, p1y + ny * extOver);
+    lineEntity(layer, x2, y2, p2x + nx * extOver, p2y + ny * extOver);
+    
+    // Dimension line
+    lineEntity(layer, p1x, p1y, p2x, p2y);
+    
+    // 45-degree ticks
+    const tickLen = Math.max(30, Math.min(70, r_pipe * 0.14));
+    const tx = (ux + nx) * (tickLen * 0.707);
+    const ty = (uy + ny) * (tickLen * 0.707);
+    lineEntity(layer, p1x - tx, p1y - ty, p1x + tx, p1y + ty);
+    lineEntity(layer, p2x - tx, p2y - ty, p2x + tx, p2y + ty);
+    
+    // Centered label slightly offset from dimension line
+    const mx = (p1x + p2x) / 2 + nx * (txtH * 0.35);
+    const my = (p1y + p2y) / 2 + ny * (txtH * 0.35);
+    textEntity(layer, mx, my, txtH * 0.75, label, angleDeg);
+  };
   
   const cx = t1_mm;
   const cy = R_mm;
@@ -1822,17 +1864,83 @@ function generateDXFContent(calc) {
     lineEntity('PULL_STATIONS', px - radX * r_pipe * 0.9, py - radY * r_pipe * 0.9, px + radX * r_pipe * 0.9, py + radY * r_pipe * 0.9);
     textEntity('PULL_STATIONS', px, py - r_pipe * 1.4, r_pipe * 0.22, `P#${i}`);
   }
-  
-  // 5. ANNOTATIONS & TITLE BLOCK
-  const txtH = Math.max(80, r_pipe * 0.35);
-  const infoX = 0;
-  const infoY = -r_pipe * 4.0;
-  textEntity('ANNOTATIONS', infoX, infoY, txtH * 1.2, 'COLDBEND PRO - BORU BUKUM MUHENDISLIK CIZIMI');
-  textEntity('ANNOTATIONS', infoX, infoY - txtH * 1.5, txtH, `Proje: ${state.projectName || '-'} | Hat: ${state.lineSection || '-'}`);
-  textEntity('ANNOTATIONS', infoX, infoY - txtH * 2.8, txtH, `Boru No: ${state.pipeNo || '-'} | Heat: ${state.heatNo || '-'} | Standart: ${state.standard}`);
-  textEntity('ANNOTATIONS', infoX, infoY - txtH * 4.1, txtH, `Cap: ${state.npsLabel} (${state.od} mm) | WT: ${state.t_nom} mm | SMYS: ${state.smys} MPa`);
-  textEntity('ANNOTATIONS', infoX, infoY - txtH * 5.4, txtH, `Bukum Acisi: ${state.targetAngle.toFixed(2)} deg (Makine: ${calc.machineAngleDeg.toFixed(2)} deg) | R: ${calc.r_bend_m.toFixed(2)} m (${state.radiusMultiplier}D)`);
-  textEntity('ANNOTATIONS', infoX, infoY - txtH * 6.7, txtH, `Lt1: ${state.tangent1.toFixed(2)} m | Lt2: ${calc.l_t2_actual.toFixed(2)} m | Yay: ${calc.l_bent_m.toFixed(2)} m | Pasolar: ${calc.numPulls} Adet`);
+
+  // 5. DIMENSION ENTITIES (Lt1, Lt2, OD, Radius & Arc)
+  // Front tangent dimension
+  dimLinear('DIMENSIONS', 0, r_pipe, t1_mm, r_pipe, r_pipe * 0.85, `Lt1 = ${(calc.pullStartM).toFixed(3)} m (${Math.round(t1_mm)} mm)`);
+
+  // Rear tangent dimension
+  dimLinear('DIMENSIONS', pt_ext_x, pt_ext_y, end_ext_x, end_ext_y, -r_pipe * 0.85, `Lt2 = ${(calc.l_t2_actual).toFixed(3)} m (${Math.round(t2draw_mm)} mm)`, theta_deg);
+
+  // Pipe OD dimension at infeed
+  dimLinear('DIMENSIONS', 0, -r_pipe, 0, r_pipe, -r_pipe * 1.4, `OD ${state.od} mm (DN ${state.npsLabel})`);
+
+  // Radius leader line & Arc callout
+  const midAngleDeg = 270.0 + theta_deg / 2;
+  const midAngleRad = (midAngleDeg * Math.PI) / 180;
+  const radDirX = Math.cos(midAngleRad);
+  const radDirY = Math.sin(midAngleRad);
+  const radStartDist = R_mm - r_pipe;
+  const radEndDist = R_mm + r_pipe + r_pipe * 1.3;
+  const radP1X = cx + radStartDist * radDirX;
+  const radP1Y = cy + radStartDist * radDirY;
+  const radP2X = cx + radEndDist * radDirX;
+  const radP2Y = cy + radEndDist * radDirY;
+  lineEntity('DIMENSIONS', radP1X, radP1Y, radP2X, radP2Y);
+  const tickL = Math.max(30, r_pipe * 0.12);
+  lineEntity('DIMENSIONS', radP1X - tickL * 0.7, radP1Y - tickL * 0.7, radP1X + tickL * 0.7, radP1Y + tickL * 0.7);
+  textEntity('DIMENSIONS', radP2X + 60, radP2Y + 60, txtH * 0.82, `R = ${(calc.r_bend_m).toFixed(2)} m (${state.radiusMultiplier}D) | Aci: ${state.targetAngle.toFixed(2)} deg (Yay: ${(calc.l_bent_m).toFixed(2)} m)`);
+
+  // 6. ASME B31.8 / B31.4 TITLE BLOCK & COMPLIANCE STAMP TABLE
+  const tblX = 0;
+  const tblY = -r_pipe * 2.8 - 250;
+  const tblW = Math.max(5000, Math.min(12000, t1_mm + t2draw_mm * 0.85));
+  const rowH = Math.max(85, txtH * 1.45);
+  const numRows = 7;
+  const tblH = rowH * numRows;
+
+  // Outer border
+  lineEntity('TITLE_BLOCK', tblX, tblY, tblX + tblW, tblY);
+  lineEntity('TITLE_BLOCK', tblX + tblW, tblY, tblX + tblW, tblY - tblH);
+  lineEntity('TITLE_BLOCK', tblX + tblW, tblY - tblH, tblX, tblY - tblH);
+  lineEntity('TITLE_BLOCK', tblX, tblY - tblH, tblX, tblY);
+
+  // Horizontal divider lines
+  for (let r = 1; r < numRows; r++) {
+    lineEntity('TITLE_BLOCK', tblX, tblY - r * rowH, tblX + tblW, tblY - r * rowH);
+  }
+
+  // Row texts
+  const padX = tblX + 80;
+  const textY = (r) => tblY - r * rowH - rowH * 0.68;
+
+  // Header Banner
+  textEntity('TITLE_BLOCK', padX, textY(0), rowH * 0.44, 'COLDBEND PRO - SAHA BORU SOGUK BUKUM IMALAT VE MUHENDISLIK PLANI');
+
+  // Row 1: Proje & Boru Kimligi
+  textEntity('TITLE_BLOCK', padX, textY(1), rowH * 0.34, `Proje: ${state.projectName || '-'} | Hat: ${state.lineSection || '-'} | Boru No: ${state.pipeNo || '-'} | Heat No: ${state.heatNo || '-'} | Standart: ${state.standard}`);
+
+  // Row 2: Malzeme ve Boyutlar
+  textEntity('TITLE_BLOCK', padX, textY(2), rowH * 0.34, `Cap: DN ${state.npsLabel} (OD ${state.od} mm x WT ${state.t_nom} mm) | Celik SMYS: ${state.smys} MPa | Toplam Boru Boyu: ${state.length.toFixed(2)} m`);
+
+  // Row 3: Bukum Geometrisi
+  textEntity('TITLE_BLOCK', padX, textY(3), rowH * 0.34, `Hedef Bukum Acisi: ${state.targetAngle.toFixed(2)} deg | Makine Acisi: ${calc.machineAngleDeg.toFixed(2)} deg (Geri Yaylanma: +${calc.springbackDeg.toFixed(2)} deg) | R: ${calc.r_bend_m.toFixed(2)} m (${state.radiusMultiplier}D)`);
+
+  // Row 4: Tegetler ve Pasolar
+  textEntity('TITLE_BLOCK', padX, textY(4), rowH * 0.34, `On Teget Lt1: ${state.tangent1.toFixed(3)} m | Arka Teget Lt2: ${calc.l_t2_actual.toFixed(3)} m | Bukum Yay Boyu: ${calc.l_bent_m.toFixed(3)} m | Toplam ${calc.numPulls} Paso (${(calc.pullStepPitch * 1000).toFixed(0)} mm/Paso)`);
+
+  // Row 5: ASME Kontrol Sonuclari
+  const thinningVerdict = calc.isWallThinningSafe ? 'UYGUN [PASS]' : 'UYGUN DEGIL [FAIL]';
+  const ovalityVerdict = calc.isOvalityCompliant ? 'UYGUN [PASS]' : 'ASIM [FAIL]';
+  const stressVerdict = calc.isCombinedStressCompliant ? 'UYGUN [PASS]' : 'ASIM [FAIL]';
+  textEntity('TITLE_BLOCK', padX, textY(5), rowH * 0.33, `Incelme: %${calc.thinningPercent.toFixed(2)} (t_ext: ${calc.t_extrados.toFixed(2)}mm >= t_min: ${calc.t_min_design.toFixed(2)}mm) [${thinningVerdict}] | Ovallik: %${calc.estimatedOvality.toFixed(2)} (Limit: <=%2.50) [${ovalityVerdict}] | Gerilme: %${calc.combinedStressRatioPercent.toFixed(1)} SMYS [${stressVerdict}]`);
+
+  // Row 6: Genel Onay Durumu & Imza
+  const overallText = calc.isOverallCompliant
+    ? 'GENEL DURUM: ASME B31.8 / B31.4 VE ISVEREN SARTNAME KOSULLARINA UYGUNDUR (ONAYLANDI)'
+    : 'GENEL DURUM: ASME KOD LIMIT ASIMI MEVCUTTUR (REVIZYON GEREKLIDIR)';
+  const dateStr = new Date().toLocaleDateString('tr-TR');
+  textEntity('TITLE_BLOCK', padX, textY(6), rowH * 0.34, `${overallText} | Tarih: ${dateStr} | Versiyon: ColdBend Pro v${APP_VERSION}`);
   
   add(0, 'ENDSEC');
   add(0, 'EOF');
