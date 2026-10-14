@@ -38,7 +38,7 @@
       "package.json"
     ],
     "extraMetadata": {
-      "version": "2.6.0"
+      "version": "2.6.1"
     },
     "mac": {
       "category": "public.app-category.engineering",
@@ -48,7 +48,7 @@
       "gatekeeperAssess": false
     },
     "dmg": {
-      "title": "ColdBend Pro v2.6.0",
+      "title": "ColdBend Pro v2.6.1",
       "backgroundColor": "#0b0f19",
       "window": {
         "width": 540,
@@ -89,11 +89,11 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "ColdBend Pro v2.6.0",
-      "artifactName": "ColdBend-Pro-Setup-2.6.0.${ext}"
+      "shortcutName": "ColdBend Pro v2.6.1",
+      "artifactName": "ColdBend-Pro-Setup-${version}.${ext}"
     },
     "portable": {
-      "artifactName": "ColdBend-Pro-Portable-2.6.0.${ext}"
+      "artifactName": "ColdBend-Pro-Portable-${version}.${ext}"
     },
     "linux": {
       "category": "Engineering",
