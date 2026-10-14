@@ -279,6 +279,7 @@ const dom = {
   btnCamSide: document.getElementById('btnCamSide'),
   btnCamFront: document.getElementById('btnCamFront'),
   btn3dResetCam: document.getElementById('btn3dResetCam'),
+  btn3dFullscreen: document.getElementById('btn3dFullscreen'),
   btn3dToggleMandrel: document.getElementById('btn3dToggleMandrel'),
   btn3dToggleSeam: document.getElementById('btn3dToggleSeam'),
   btn3dPlay: document.getElementById('btn3dPlay'),
@@ -2832,6 +2833,36 @@ function onWindowResize3D() {
   camera3D.updateProjectionMatrix();
   renderer3D.setSize(width, height);
 }
+
+function toggle3DFullscreen() {
+  const elem = dom.container3D;
+  if (!elem) return;
+  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+    if (elem.requestFullscreen) {
+      elem.requestFullscreen();
+    } else if (elem.webkitRequestFullscreen) {
+      elem.webkitRequestFullscreen();
+    }
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    }
+  }
+}
+
+function handleFullscreenChange() {
+  const isFull = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  if (dom.btn3dFullscreen) {
+    dom.btn3dFullscreen.textContent = isFull ? '✕ Küçült' : '⛶ Tam Ekran';
+    dom.btn3dFullscreen.setAttribute('aria-pressed', String(isFull));
+  }
+  setTimeout(onWindowResize3D, 60);
+}
+
+document.addEventListener('fullscreenchange', handleFullscreenChange);
+document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
 
 function update3DPipe(calc, angleOverrideDeg = null) {
   if (!is3DInitialized) {
@@ -5843,6 +5874,19 @@ function setupEventListeners() {
     }
   });
 
+  if (dom.btn3dFullscreen) {
+    dom.btn3dFullscreen.addEventListener('click', toggle3DFullscreen);
+  }
+
+  if (dom.container3D) {
+    dom.container3D.addEventListener('dblclick', (e) => {
+      if (e.target && (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.closest('.controls-3d-overlay') || e.target.closest('.legend-3d-overlay'))) {
+        return;
+      }
+      toggle3DFullscreen();
+    });
+  }
+
   dom.btn3dToggleMandrel.addEventListener('click', () => {
     state.mandrelVisible3D = !state.mandrelVisible3D;
     stopBendAnimation(false); // visibility edits end the animation session
@@ -6139,25 +6183,82 @@ function setupEventListeners() {
       return;
     }
     const tag = e.target && e.target.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-    if (e.key === 'ArrowRight') {
-      const calc = runCalculations();
-      if (calc.numPulls > 0) {
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable)) return;
+
+    const in3D = dom.view3D && dom.view3D.classList.contains('active');
+
+    if (in3D) {
+      if (e.key === ' ' || e.code === 'Space') {
         e.preventDefault();
-        if (selectedPullIndex === null) {
-          selectPull(1);
-        } else if (selectedPullIndex < calc.numPulls) {
-          selectPull(selectedPullIndex + 1);
-        }
+        if (dom.btn3dPlay) dom.btn3dPlay.click();
+        return;
       }
-    } else if (e.key === 'ArrowLeft') {
-      const calc = runCalculations();
-      if (calc.numPulls > 0) {
+      if (e.key === 'ArrowRight') {
         e.preventDefault();
-        if (selectedPullIndex === null) {
-          selectPull(calc.numPulls);
-        } else if (selectedPullIndex > 1) {
-          selectPull(selectedPullIndex - 1);
+        if (dom.btn3dStep) dom.btn3dStep.click();
+        return;
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (dom.btn3dStepPrev) dom.btn3dStepPrev.click();
+        return;
+      }
+      if (e.key === 'Home') {
+        e.preventDefault();
+        renderAnimStep(0);
+        return;
+      }
+      if (e.key === 'End') {
+        e.preventDefault();
+        const calc = runCalculations();
+        renderAnimStep(calc.numPulls);
+        return;
+      }
+      if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        toggle3DFullscreen();
+        return;
+      }
+      if (e.key === '1') {
+        e.preventDefault();
+        set3DCameraPreset('iso');
+        return;
+      }
+      if (e.key === '2') {
+        e.preventDefault();
+        set3DCameraPreset('top');
+        return;
+      }
+      if (e.key === '3') {
+        e.preventDefault();
+        set3DCameraPreset('side');
+        return;
+      }
+      if (e.key === '4') {
+        e.preventDefault();
+        set3DCameraPreset('front');
+        return;
+      }
+    } else {
+      if (e.key === 'ArrowRight') {
+        const calc = runCalculations();
+        if (calc.numPulls > 0) {
+          e.preventDefault();
+          if (selectedPullIndex === null) {
+            selectPull(1);
+          } else if (selectedPullIndex < calc.numPulls) {
+            selectPull(selectedPullIndex + 1);
+          }
+        }
+      } else if (e.key === 'ArrowLeft') {
+        const calc = runCalculations();
+        if (calc.numPulls > 0) {
+          e.preventDefault();
+          if (selectedPullIndex === null) {
+            selectPull(calc.numPulls);
+          } else if (selectedPullIndex > 1) {
+            selectPull(selectedPullIndex - 1);
+          }
         }
       }
     }
