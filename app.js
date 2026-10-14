@@ -5,7 +5,7 @@
 
 // Single source of truth for the app version
 // (must match UI badge, package.json, electron shell, release tag).
-const APP_VERSION = '2.6.0';
+const APP_VERSION = '2.6.1';
 const UPDATE_API_URL = 'https://api.github.com/repos/SLedgehammer-dev12/Cold-Bending/releases/latest';
 const UPDATE_CACHE_KEY = 'coldbend_update_cache';
 const UPDATE_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // silent auto-check at most once a day
@@ -1970,6 +1970,11 @@ function setup2DZoomPan() {
   if (!dom.svgBend2D) return;
 
   dom.svgBend2D.addEventListener('wheel', (e) => {
+    // Only zoom drawing when Ctrl or Cmd is held (or trackpad pinch-zoom);
+    // otherwise let the mouse roller scroll the page naturally without trapping the user
+    if (!e.ctrlKey && !e.metaKey) {
+      return;
+    }
     e.preventDefault();
     const rect = dom.svgBend2D.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return;
@@ -2594,6 +2599,12 @@ function init3DScene() {
     controls3D.maxDistance = 50;
     controls3D.minDistance = 3;
     controls3D.target.set(0, 0, 0);
+
+    // Only allow wheel zoom in 3D canvas when Ctrl or Cmd is held (or pinch-zoom);
+    // otherwise allow the mouse roller to scroll the page naturally without trapping the user
+    renderer3D.domElement.addEventListener('wheel', (e) => {
+      controls3D.enableZoom = Boolean(e.ctrlKey || e.metaKey);
+    }, { capture: true, passive: true });
   }
   
   // Lighting (theme-reactive rig; tuned per theme by tune3DLights)
@@ -5435,6 +5446,15 @@ function setupEventListeners() {
   });
   if (dom.btnApplyCompoundBend) {
     dom.btnApplyCompoundBend.addEventListener('click', applyCompoundBend);
+  }
+
+  // Forward wheel events on app header to content panel for smooth top scrolling
+  const appHeader = document.querySelector('.app-header');
+  const contentPanel = document.querySelector('.content-panel');
+  if (appHeader && contentPanel) {
+    appHeader.addEventListener('wheel', (e) => {
+      contentPanel.scrollTop += e.deltaY;
+    }, { passive: true });
   }
 
   // Update Manager wiring

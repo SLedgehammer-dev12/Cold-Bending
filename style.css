@@ -308,7 +308,8 @@ body {
   border-right: 1px solid var(--border-color);
   padding: 20px;
   overflow-y: auto;
-  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -504,7 +505,8 @@ body {
   flex-direction: column;
   padding: 20px;
   overflow-y: auto;
-  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
   gap: 20px;
   background-color: var(--bg-primary);
 }
