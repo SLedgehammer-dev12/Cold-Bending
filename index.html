@@ -48,8 +48,9 @@
     </div>
     <div class="header-right">
       <div class="standard-pill" id="standardDisplayBadge">ASME B31.8 (Md. 841.2.3)</div>
-      <button class="btn btn-outline" id="btnCheckUpdates" title="Yeni program sürümünü denetle">
-        <span aria-hidden="true">⟳</span>
+      <button class="btn btn-outline btn-update-manager" id="btnCheckUpdates" title="Program Güncelleme Yöneticisi">
+        <span class="update-icon" aria-hidden="true">🔄</span>
+        <span class="update-btn-label">Güncellemeler:</span>
         <span id="updatePill" data-state="idle">v2.6.1</span>
       </button>
       <button class="btn btn-outline" id="btnToggleTheme" title="Açık / Koyu Tema Değiştir">
@@ -421,6 +422,17 @@
       <div class="form-group">
         <label for="inpReportNo" class="field-label">QC Rapor / Föy No</label>
         <input type="text" id="inpReportNo" class="form-input" value="CFB-2026-0042" maxlength="30" autocomplete="off" spellcheck="false">
+      </div>
+
+      <!-- Sidebar Quick Update Card -->
+      <div class="sidebar-update-card">
+        <div class="update-card-info">
+          <span class="update-card-title">🚀 Sürüm & Güncelleme</span>
+          <span class="update-card-sub">Otomatik Kontrol Aktif</span>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline" id="btnSidebarCheckUpdates" title="Program Güncelleme Yöneticisi">
+          <span>🔄 Güncelleme Yöneticisi</span>
+        </button>
       </div>
 
     </aside>
@@ -1573,13 +1585,42 @@
 
   <!-- UPDATE MANAGER MODAL -->
   <div class="modal-backdrop" id="updateModal" hidden>
-    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="updateModalTitle">
-      <h2 id="updateModalTitle">Program Güncellemeleri</h2>
-      <p id="updateStatus" class="update-status">Sürüm denetleniyor…</p>
-      <pre id="updateNotes" class="update-notes"></pre>
+    <div class="modal-card modal-update-card" role="dialog" aria-modal="true" aria-labelledby="updateModalTitle">
+      <div class="update-modal-header">
+        <div class="update-modal-icon">🔄</div>
+        <div>
+          <h2 id="updateModalTitle">ColdBend Pro — Güncelleme Yöneticisi</h2>
+          <p class="update-modal-sub">Resmi Dağıtım Kanalı: GitHub Releases (Otomatik Denetim)</p>
+        </div>
+      </div>
+      
+      <!-- Sürüm Karşılaştırma Kartı -->
+      <div class="update-version-card">
+        <div class="update-ver-col">
+          <span class="update-ver-lbl">Kurulu Sürüm</span>
+          <span class="update-ver-val" id="updateInstalledVer">v2.6.1</span>
+        </div>
+        <div class="update-ver-arrow">➔</div>
+        <div class="update-ver-col">
+          <span class="update-ver-lbl">Son Yayınlanan Sürüm</span>
+          <span class="update-ver-val" id="updateLatestVer">—</span>
+        </div>
+        <div class="update-ver-status">
+          <span class="badge" id="updateBadgeStatus">Denetleniyor</span>
+        </div>
+      </div>
+
+      <p id="updateStatus" class="update-status">Sürüm bilgisi denetleniyor…</p>
+      
+      <div class="update-section-title">İndirme Paketleri (Tüm Platformlar)</div>
       <div id="updateAssets" class="update-assets"></div>
-      <div class="modal-actions">
-        <button class="btn btn-outline" id="btnCloseUpdateModal">Kapat</button>
+      
+      <div class="update-section-title">Sürüm Değişiklik Notları (Changelog)</div>
+      <div id="updateNotes" class="update-notes"></div>
+      
+      <div class="modal-actions update-modal-actions">
+        <button type="button" class="btn btn-outline" id="btnModalRecheck">⟳ Şimdi Tekrar Denetle</button>
+        <button type="button" class="btn btn-primary" id="btnCloseUpdateModal">Kapat</button>
       </div>
     </div>
   </div>

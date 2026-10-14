@@ -288,8 +288,13 @@ const dom = {
 
   // Update Manager
   btnCheckUpdates: document.getElementById('btnCheckUpdates'),
+  btnSidebarCheckUpdates: document.getElementById('btnSidebarCheckUpdates'),
+  btnModalRecheck: document.getElementById('btnModalRecheck'),
   updatePill: document.getElementById('updatePill'),
   updateModal: document.getElementById('updateModal'),
+  updateInstalledVer: document.getElementById('updateInstalledVer'),
+  updateLatestVer: document.getElementById('updateLatestVer'),
+  updateBadgeStatus: document.getElementById('updateBadgeStatus'),
   updateStatus: document.getElementById('updateStatus'),
   updateNotes: document.getElementById('updateNotes'),
   updateAssets: document.getElementById('updateAssets'),
@@ -5828,6 +5833,12 @@ function setupEventListeners() {
   if (dom.btnCheckUpdates) {
     dom.btnCheckUpdates.addEventListener('click', () => checkForUpdates(true));
   }
+  if (dom.btnSidebarCheckUpdates) {
+    dom.btnSidebarCheckUpdates.addEventListener('click', () => checkForUpdates(true));
+  }
+  if (dom.btnModalRecheck) {
+    dom.btnModalRecheck.addEventListener('click', () => checkForUpdates(true));
+  }
   if (dom.btnCloseUpdateModal) {
     dom.btnCloseUpdateModal.addEventListener('click', closeUpdateModal);
   }
@@ -5933,25 +5944,79 @@ function closeUpdateModal() {
   if (dom.updateModal) dom.updateModal.hidden = true;
 }
 
+function escapeHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function formatReleaseNotes(body) {
+  if (!body) return '';
+  const lines = String(body).split('\n');
+  let html = '';
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    if (line.startsWith('### ')) {
+      html += `<h4 class="notes-h4">${escapeHtml(line.slice(4))}</h4>`;
+    } else if (line.startsWith('## ')) {
+      html += `<h3 class="notes-h3">${escapeHtml(line.slice(3))}</h3>`;
+    } else if (line.startsWith('# ')) {
+      html += `<h2 class="notes-h2">${escapeHtml(line.slice(2))}</h2>`;
+    } else if (line.startsWith('- ') || line.startsWith('* ')) {
+      html += `<div class="notes-bullet">• ${escapeHtml(line.slice(2))}</div>`;
+    } else {
+      html += `<p class="notes-p">${escapeHtml(line)}</p>`;
+    }
+  }
+  return html;
+}
+
 function pickUpdateAssets(release) {
   const assets = (release && release.assets) || [];
   const find = (re) => assets.find((a) => re.test(a.name || ''));
   const plat = String((typeof navigator !== 'undefined' && navigator.platform) || '').toLowerCase();
+  const ua = String((typeof navigator !== 'undefined' && navigator.userAgent) || '').toLowerCase();
   const isMac = plat.includes('mac');
   const isWin = plat.includes('win');
+  const isArm = ua.includes('arm') || ua.includes('apple') || plat.includes('arm');
+
   const picked = [];
-  const push = (asset, label, recommended) => {
+  const formatBytes = (bytes) => {
+    if (!bytes || isNaN(bytes)) return '';
+    return ' (' + (bytes / (1024 * 1024)).toFixed(1) + ' MB)';
+  };
+
+  const push = (asset, label, icon, recommended) => {
     if (asset && asset.browser_download_url) {
-      picked.push({ label: label + (recommended ? ' (Önerilen)' : ''), url: asset.browser_download_url });
+      picked.push({
+        label: label + formatBytes(asset.size) + (recommended ? ' ★ Önerilen' : ''),
+        url: asset.browser_download_url,
+        icon: icon,
+        recommended: recommended
+      });
     }
   };
-  if (isMac) {
-    push(find(/\.dmg$/i), 'macOS Masaüstü (.dmg)', true);
-  } else if (isWin) {
-    push(find(/portable.*\.exe$/i), 'Windows Taşınabilir (.exe)', true);
-    push(find(/setup.*\.exe$/i), 'Windows Kurulumlu (.exe)', false);
-  }
-  push(find(/web.*\.zip$/i), 'Tarayıcı Sürümü (.zip)', !isMac && !isWin);
+
+  // macOS
+  const macArm = find(/arm64\.dmg$/i);
+  const macX64 = find(/x64\.dmg$/i);
+  if (macArm) push(macArm, 'macOS Apple Silicon (.dmg)', '🍏', isMac && isArm);
+  if (macX64) push(macX64, 'macOS Intel (.dmg)', '🍎', isMac && !isArm);
+  if (!macArm && !macX64) push(find(/\.dmg$/i), 'macOS Kurulumu (.dmg)', '🍎', isMac);
+
+  // Windows
+  const winPortable = find(/portable.*\.exe$/i);
+  const winSetup = find(/setup.*\.exe$/i);
+  if (winPortable) push(winPortable, 'Windows Taşınabilir (.exe)', '💼', isWin);
+  if (winSetup) push(winSetup, 'Windows Kurulum Sihirbazı (.exe)', '🪟', false);
+
+  // Web Offline Package
+  const webZip = find(/web.*\.zip$/i);
+  if (webZip) push(webZip, 'Çevrimdışı Web Paketi (.zip)', '🌐', !isMac && !isWin);
+
   return picked;
 }
 
@@ -5960,36 +6025,78 @@ function renderUpdateModal(release, opts) {
   if (!dom.updateModal) return;
   if (dom.updateAssets) dom.updateAssets.textContent = '';
   if (dom.updateNotes) dom.updateNotes.textContent = '';
+
+  if (dom.updateInstalledVer) {
+    dom.updateInstalledVer.textContent = 'v' + APP_VERSION;
+  }
+
   if (options.error || !release) {
-    if (dom.updateStatus) dom.updateStatus.textContent =
-      'Sürüm bilgisi alınamadı. İnternet bağlantınızı kontrol edip tekrar deneyin ' +
-      '(saha/offline kullanımda denetim atlanır).';
+    if (dom.updateLatestVer) dom.updateLatestVer.textContent = 'Bağlantı Yok';
+    if (dom.updateBadgeStatus) {
+      dom.updateBadgeStatus.textContent = 'Çevrimdışı';
+      dom.updateBadgeStatus.className = 'badge warning';
+    }
+    if (dom.updateStatus) {
+      dom.updateStatus.textContent =
+        'GitHub sunucusuna erişilemedi. İnternet bağlantınızı kontrol edip tekrar deneyin ' +
+        '(Saha kullanımında çevrimdışı modda hesaplamalar eksiksiz çalışır).';
+    }
     openUpdateModal();
     return;
   }
+
+  const latestTag = release.tag_name || ('v' + APP_VERSION);
+  if (dom.updateLatestVer) dom.updateLatestVer.textContent = latestTag;
+
   const newer = isNewerTag(release.tag_name, APP_VERSION);
+  if (dom.updateBadgeStatus) {
+    if (newer) {
+      dom.updateBadgeStatus.textContent = 'Yeni Sürüm Mevcut';
+      dom.updateBadgeStatus.className = 'badge warning';
+    } else {
+      dom.updateBadgeStatus.textContent = 'Güncel';
+      dom.updateBadgeStatus.className = 'badge success';
+    }
+  }
+
   if (dom.updateStatus) {
+    const pubDate = release.published_at ? new Date(release.published_at).toLocaleDateString('tr-TR') : '';
     dom.updateStatus.textContent = newer
-      ? `Yeni sürüm mevcut: ${release.tag_name} (sizde v${APP_VERSION}).`
-      : `Programınız güncel (v${APP_VERSION}). Son release: ${release.tag_name}.`;
+      ? `Yeni bir ColdBend Pro sürümü yayınlandı: ${release.tag_name} ${pubDate ? '(' + pubDate + ')' : ''}. Güncellemeniz önerilir.`
+      : `Programınız en güncel sürümdedir (v${APP_VERSION}). Tüm hesaplama ve ASME standart modülleri günceldir.`;
   }
-  if (dom.updateNotes && release.body) {
-    dom.updateNotes.textContent = String(release.body).slice(0, 2000);
+
+  // Render formatted changelog notes
+  if (dom.updateNotes) {
+    if (release.body) {
+      dom.updateNotes.innerHTML = formatReleaseNotes(release.body);
+    } else {
+      dom.updateNotes.textContent = 'Bu sürüm için detaylı sürüm notu girilmedi.';
+    }
   }
+
+  // Render platform download buttons
   if (dom.updateAssets) {
-    const addLink = (label, url, primary) => {
+    const picked = pickUpdateAssets(release);
+    picked.forEach((p) => {
       const a = document.createElement('a');
-      a.textContent = label;
-      a.href = url;
+      a.href = p.url;
       a.target = '_blank';
       a.rel = 'noopener';
-      a.className = 'btn ' + (primary ? 'btn-primary' : 'btn-outline');
+      a.className = 'update-asset-btn ' + (p.recommended && newer ? 'recommended' : '');
+      a.innerHTML = `<span class="asset-icon">${p.icon}</span><span class="asset-text">${p.label}</span>`;
       dom.updateAssets.appendChild(a);
-    };
-    const picked = pickUpdateAssets(release);
-    picked.forEach((p, i) => addLink('⬇ ' + p.label, p.url, i === 0 && newer));
-    addLink('Tüm dosyalar (GitHub Release)', release.html_url || UPDATE_API_URL, picked.length === 0 && newer);
+    });
+
+    const ghLink = document.createElement('a');
+    ghLink.href = release.html_url || UPDATE_API_URL;
+    ghLink.target = '_blank';
+    ghLink.rel = 'noopener';
+    ghLink.className = 'update-asset-btn github';
+    ghLink.innerHTML = `<span class="asset-icon">📦</span><span class="asset-text">GitHub Release Sayfası</span>`;
+    dom.updateAssets.appendChild(ghLink);
   }
+
   openUpdateModal();
 }
 
