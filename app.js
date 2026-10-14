@@ -240,6 +240,8 @@ const dom = {
   badgeActivePull: document.getElementById('badgeActivePull'),
   btnExportCSV: document.getElementById('btnExportCSV'),
   btnExportJSON: document.getElementById('btnExportJSON'),
+  btnImportJSON: document.getElementById('btnImportJSON'),
+  fileImportJSON: document.getElementById('fileImportJSON'),
   btnTogglePulls: document.getElementById('btnTogglePulls'),
   pullsWrap: document.getElementById('pullsWrap'),
   
@@ -1664,12 +1666,94 @@ function exportPullsToJSON(calc) {
       netAnglePerPull_deg: Number(calc.netAnglePerStep.toFixed(2)),
       steps: pullsList
     },
-    siteAsBuiltVerification: calculateAsBuiltEvaluation(calc)
+    siteAsBuiltVerification: calculateAsBuiltEvaluation(calc),
+    asBuilt: state.asBuilt
   };
 
   const jsonContent = JSON.stringify(exportData, null, 2);
   const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
   triggerDownload(blob, filename);
+}
+
+function parseColdBendJSON(json) {
+  if (!json || typeof json !== 'object') return null;
+  if (json.application === 'ColdBend Pro' || json.pipeSpecifications || json.bendDesign) {
+    const proj = json.project || {};
+    const pipe = json.pipeSpecifications || {};
+    const bend = json.bendDesign || {};
+    const comp = bend.compoundDetails || {};
+    const asb = json.asBuilt || (json.siteAsBuiltVerification ? {
+      spoolNo: json.siteAsBuiltVerification.spoolNo,
+      date: json.siteAsBuiltVerification.date,
+      measuredAngle: json.siteAsBuiltVerification.measuredAngle,
+      measuredWT: json.siteAsBuiltVerification.measuredWT,
+      measuredOvality: json.siteAsBuiltVerification.measuredOvality,
+      measuredRipple: json.siteAsBuiltVerification.measuredRipple,
+      inspector: json.siteAsBuiltVerification.inspector
+    } : null);
+
+    return {
+      projectName: proj.name,
+      lineSection: proj.lineSection,
+      chainageKP: proj.chainageKP,
+      pipeNo: proj.pipeNo,
+      heatNo: proj.heatNo,
+      reportNo: proj.reportNo,
+      standard: pipe.standard,
+      od: pipe.outerDiameter_mm,
+      t_nom: pipe.nominalWallThickness_mm,
+      ca: pipe.corrosionAllowance_mm,
+      smys: pipe.smys_mpa,
+      gradeName: pipe.steelGrade,
+      length: pipe.pipeLength_m,
+      seamType: pipe.seamType,
+      clockPos: pipe.seamClockPosition,
+      seamAngle: pipe.seamAngle_deg,
+      designPressure: pipe.designPressure_bar,
+      designFactor: pipe.designFactor,
+      designTemp: pipe.designTemperature_C,
+      bendType: bend.bendType,
+      targetAngle: bend.targetAngle_deg,
+      compoundHoriAngle: comp.horizontalAngle_deg,
+      compoundHoriDir: comp.horizontalDirection,
+      compoundVertAngle: comp.verticalAngle_deg,
+      compoundVertDir: comp.verticalDirection,
+      compoundRollAngle: comp.machineRollAngle_deg,
+      radiusMultiplier: bend.radiusMultiplier,
+      tangent1: bend.frontTangent_m,
+      tangent2: bend.rearTangentDesign_m,
+      useMandrel: bend.useMandrel,
+      girthWeldInBend: bend.girthWeldInBend,
+      girthWeldDist: bend.girthWeldDistance_m,
+      manualPulls: bend.manualPulls,
+      asBuilt: asb
+    };
+  }
+  return json;
+}
+
+function importProjectFromJSON(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      const normalized = parseColdBendJSON(parsed);
+      if (!normalized || typeof normalized !== 'object') {
+        alert('Geçersiz JSON dosyası: ColdBend Pro proje formatı bulunamadı.');
+        return;
+      }
+      restoreState(normalized);
+      updateUI();
+      scheduleSave();
+      if (dom.visInfoLabel) {
+        dom.visInfoLabel.textContent = `Proje Yüklendi: ${state.projectName || state.pipeNo || 'ColdBend'}`;
+      }
+    } catch (err) {
+      alert('Dosya okuma hatası: ' + (err.message || 'Geçersiz JSON'));
+    }
+  };
+  reader.readAsText(file);
 }
 
 /* ==========================================================================
@@ -4966,12 +5050,14 @@ function saveState() {
   }
 }
 
-function restoreState() {
-  let data = null;
-  try {
-    data = JSON.parse(localStorage.getItem(STATE_STORAGE_KEY) || 'null');
-  } catch (err) {
-    data = null;
+function restoreState(customData = null) {
+  let data = customData;
+  if (!data) {
+    try {
+      data = JSON.parse(localStorage.getItem(STATE_STORAGE_KEY) || 'null');
+    } catch (err) {
+      data = null;
+    }
   }
   if (!data || typeof data !== 'object') return;
 
@@ -5717,6 +5803,18 @@ function setupEventListeners() {
     dom.btnExportJSON.addEventListener('click', () => {
       const calc = runCalculations();
       exportPullsToJSON(calc);
+    });
+  }
+  if (dom.btnImportJSON && dom.fileImportJSON) {
+    dom.btnImportJSON.addEventListener('click', () => {
+      dom.fileImportJSON.value = '';
+      dom.fileImportJSON.click();
+    });
+    dom.fileImportJSON.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file) {
+        importProjectFromJSON(file);
+      }
     });
   }
   if (dom.btnExportDXF) {
