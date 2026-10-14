@@ -2,7 +2,7 @@
 
 Tüm önemli değişiklikler bu dosyada izlenir. Sürüm biçimi `MAJOR.MINOR.PATCH`.
 
-## [2.6.2] — 2026-10-15
+## [2.6.3] — 2026-10-15
 
 Yeni Özellikler & 3D Stüdyo Araçları: JSON Proje Yükleme, 3D Snapshot, Tam Ekran & Kısayollar, DXF ASME Başlık Bloğu.
 
