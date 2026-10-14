@@ -825,7 +825,13 @@
               <button class="btn-3d-control" id="btn3dToggleMandrel" title="İç Mandreli Göster/Gizle" aria-pressed="true">Mandrel: Açık</button>
               <button class="btn-3d-control" id="btn3dToggleSeam" title="Kaynak Dikişini Vurgula" aria-pressed="true">Kaynak Dikişi: Açık</button>
               <button class="btn-3d-control" id="btn3dPlay" title="Bükümü paso paso oynat" aria-pressed="false">▶ Bükümü Oynat</button>
-              <button class="btn-3d-control" id="btn3dStep" title="Bir paso ilerle">Adım İleri</button>
+              <div class="step-btn-group-3d">
+                <button class="btn-3d-control btn-3d-step" id="btn3dStepPrev" title="Bir paso geri al">◀ Geri</button>
+                <button class="btn-3d-control btn-3d-step" id="btn3dStep" title="Bir paso ilerle">İleri ▶</button>
+              </div>
+              <div class="timeline-3d-wrap" title="Paso Zaman Çizelgesi">
+                <input type="range" class="slider-3d-step" id="slider3dStep" min="0" max="1" value="0" step="1" aria-label="Paso Konumu">
+              </div>
               <span class="anim-progress" id="animProgress">Hazır</span>
               <button class="btn-3d-control btn-easter-egg" id="btnExitTreeMode" style="display:none;" title="Standart Hidrolik Büküm Makinesine Dön (ESC)">🌳 Ağaç Bükümünden Çık (ESC)</button>
               <span class="badge-easter-egg" id="badgeEasterEggThumbsUp" style="display:none;">👷 Şantiye Şefi: Tamamdır Usta! 👍</span>

@@ -278,7 +278,9 @@ const dom = {
   btn3dToggleMandrel: document.getElementById('btn3dToggleMandrel'),
   btn3dToggleSeam: document.getElementById('btn3dToggleSeam'),
   btn3dPlay: document.getElementById('btn3dPlay'),
+  btn3dStepPrev: document.getElementById('btn3dStepPrev'),
   btn3dStep: document.getElementById('btn3dStep'),
+  slider3dStep: document.getElementById('slider3dStep'),
   animProgress: document.getElementById('animProgress'),
   btnExitTreeMode: document.getElementById('btnExitTreeMode'),
   badgeEasterEggThumbsUp: document.getElementById('badgeEasterEggThumbsUp'),
@@ -4084,18 +4086,39 @@ function setRamPressed(pressed) {
 
 let _animUiSig = '';
 function syncAnimUI() {
+  const calc = runCalculations();
+  const total = calc.numPulls || 0;
+  const currentStep = bendAnim.active ? bendAnim.step : (bendAnim.done > 0 ? total : 0);
   // Skip redundant DOM writes on every keystroke-driven updateUI
-  const sig = `${bendAnim.playing ? 1 : 0}|${bendAnim.active ? 1 : 0}|${bendAnim.step}|${bendAnim.total}|${bendAnim.done}`;
+  const sig = `${bendAnim.playing ? 1 : 0}|${bendAnim.active ? 1 : 0}|${currentStep}|${total}|${bendAnim.done}`;
   if (sig === _animUiSig) return;
   _animUiSig = sig;
   if (dom.btn3dPlay) {
     dom.btn3dPlay.textContent = bendAnim.playing ? '⏸ Duraklat' : '▶ Bükümü Oynat';
     dom.btn3dPlay.setAttribute('aria-pressed', String(bendAnim.playing));
   }
+  if (dom.slider3dStep) {
+    dom.slider3dStep.max = String(total);
+    dom.slider3dStep.value = String(currentStep);
+    dom.slider3dStep.disabled = total <= 0;
+  }
+  if (dom.btn3dStepPrev) {
+    dom.btn3dStepPrev.disabled = currentStep <= 0;
+  }
+  if (dom.btn3dStep) {
+    dom.btn3dStep.disabled = total > 0 && currentStep >= total;
+  }
   if (dom.animProgress) {
-    dom.animProgress.textContent = bendAnim.done > 0
-      ? `Tamamlandı • ${bendAnim.done}/${bendAnim.total}`
-      : bendAnim.active ? `Paso ${bendAnim.step}/${bendAnim.total}` : 'Hazır';
+    if (bendAnim.done > 0) {
+      dom.animProgress.textContent = `Tamamlandı • ${bendAnim.done}/${total}`;
+    } else if (bendAnim.active) {
+      const curAng = (state.targetAngle * (currentStep / Math.max(1, total))).toFixed(2);
+      dom.animProgress.textContent = currentStep === 0
+        ? `Düz Boru (0.00°)`
+        : `Paso ${currentStep}/${total} (${curAng}°)`;
+    } else {
+      dom.animProgress.textContent = 'Hazır';
+    }
   }
 }
 
@@ -4119,22 +4142,24 @@ function ensureMachine() {
   }
 }
 
-// Render animation step k (1-based): bend grows to k net pulls with pipe
+// Render animation step k (0 to numPulls): bend grows to k net pulls with pipe
 // feeding through stationary bending machine anchored at (0,0,0).
 function renderAnimStep(k) {
   const calc = runCalculations();
-  const ang = state.targetAngle * (k / Math.max(1, calc.numPulls));
+  const clampedK = Math.max(0, Math.min(calc.numPulls, k));
+  const ang = state.targetAngle * (clampedK / Math.max(1, calc.numPulls));
   animLowDetail = true;
-  bendAnim.step = k;
+  bendAnim.step = clampedK;
+  bendAnim.total = calc.numPulls;
   try {
     update3DPipe(calc, ang);
   } finally {
     animLowDetail = false; // never leak low-detail mode into static views
   }
   if (state.isTreeBendMode) {
-    updateTreeBendSceneAt(calc, k);
+    updateTreeBendSceneAt(calc, clampedK);
   } else {
-    setRamPressed(true);
+    setRamPressed(clampedK > 0);
     if (machineGroup3D) {
       machineGroup3D.position.set(0, 0, 0);
       machineGroup3D.quaternion.setFromUnitVectors(
@@ -4142,6 +4167,18 @@ function renderAnimStep(k) {
         new THREE.Vector3(1, 0, 0)
       );
     }
+  }
+  if (dom.tbodyPulls) {
+    const rows = dom.tbodyPulls.querySelectorAll('tr');
+    rows.forEach((tr) => {
+      const step = Number(tr.dataset.step);
+      if (clampedK > 0 && step === clampedK) {
+        tr.classList.add('selected-pull-row');
+        tr.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      } else {
+        tr.classList.remove('selected-pull-row');
+      }
+    });
   }
   syncAnimUI();
 }
@@ -5656,6 +5693,27 @@ function setupEventListeners() {
     });
   }
 
+  if (dom.btn3dStepPrev) {
+    dom.btn3dStepPrev.addEventListener('click', () => {
+      if (!dom.view3D.classList.contains('active') || typeof THREE === 'undefined') return;
+      bendAnim.playing = false;
+      if (bendAnim.timer) {
+        clearTimeout(bendAnim.timer);
+        bendAnim.timer = null;
+      }
+      const calc = runCalculations();
+      bendAnim.total = calc.numPulls;
+      ensureMachine();
+      if (!state.isTreeBendMode && !machineGroup3D) return;
+      if (state.isTreeBendMode && !treeBendGroup3D) return;
+      bendAnim.active = true;
+      const targetStep = Math.max(0, (bendAnim.step || 0) - 1);
+      renderAnimStep(targetStep);
+      if (!state.isTreeBendMode) setRamPressed(false);
+      syncAnimUI();
+    });
+  }
+
   if (dom.btn3dStep) {
     dom.btn3dStep.addEventListener('click', () => {
       if (!dom.view3D.classList.contains('active') || typeof THREE === 'undefined') return;
@@ -5670,11 +5728,34 @@ function setupEventListeners() {
       if (!state.isTreeBendMode && !machineGroup3D) return;
       if (state.isTreeBendMode && !treeBendGroup3D) return;
       bendAnim.active = true;
-      if (bendAnim.step >= calc.numPulls) bendAnim.step = 0;
-      renderAnimStep(bendAnim.step + 1);
+      const targetStep = Math.min(calc.numPulls, (bendAnim.step || 0) + 1);
+      renderAnimStep(targetStep);
       if (!state.isTreeBendMode) setRamPressed(false);
       syncAnimUI();
     });
+  }
+
+  if (dom.slider3dStep) {
+    const handleSliderInput = (e) => {
+      if (!dom.view3D.classList.contains('active') || typeof THREE === 'undefined') return;
+      bendAnim.playing = false;
+      if (bendAnim.timer) {
+        clearTimeout(bendAnim.timer);
+        bendAnim.timer = null;
+      }
+      const calc = runCalculations();
+      bendAnim.total = calc.numPulls;
+      ensureMachine();
+      if (!state.isTreeBendMode && !machineGroup3D) return;
+      if (state.isTreeBendMode && !treeBendGroup3D) return;
+      bendAnim.active = true;
+      const stepVal = parseInt(e.target.value, 10) || 0;
+      renderAnimStep(stepVal);
+      if (!state.isTreeBendMode) setRamPressed(false);
+      syncAnimUI();
+    };
+    dom.slider3dStep.addEventListener('input', handleSliderInput);
+    dom.slider3dStep.addEventListener('change', handleSliderInput);
   }
 
   // Easter Egg: Exit Tree Bend Mode Button

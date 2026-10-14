@@ -1410,6 +1410,46 @@ body {
   border-color: #38bdf8;
 }
 
+.btn-3d-control:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.step-btn-group-3d {
+  display: flex;
+  gap: 4px;
+}
+
+.btn-3d-step {
+  flex: 1;
+  text-align: center;
+  padding: 6px 4px;
+}
+
+.timeline-3d-wrap {
+  display: flex;
+  align-items: center;
+  padding: 5px 8px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+
+.slider-3d-step {
+  width: 100%;
+  height: 6px;
+  cursor: pointer;
+  accent-color: #38bdf8;
+}
+
+.slider-3d-step:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .anim-progress {
   background: rgba(15, 23, 42, 0.85);
   backdrop-filter: blur(8px);
@@ -2135,7 +2175,8 @@ body.light-theme .hint-3d-overlay,
 body.light-theme .hint-2d-overlay,
 body.light-theme .badge-zoom-2d,
 body.light-theme .controls-2d-overlay .btn-2d-control,
-body.light-theme .controls-3d-overlay .btn-3d-control {
+body.light-theme .controls-3d-overlay .btn-3d-control,
+body.light-theme .controls-3d-overlay .timeline-3d-wrap {
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
