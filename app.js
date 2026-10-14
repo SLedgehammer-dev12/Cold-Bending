@@ -3006,11 +3006,32 @@ function update3DPipe(calc, angleOverrideDeg = null) {
     if (dom.legend3DValueInt) dom.legend3DValueInt.textContent = '—';
   }
 
+  // Helper for cross-browser canvas rounded rectangles
+  const drawCanvasRoundRect = (ctx, x, y, w, h, r) => {
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(x, y, w, h, r);
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+    }
+  };
+
+  const tNom = state.t_nom || 14.3;
+
   // Update wall thickness display in legend
   if (dom.legend3DValueWt) {
-    const idVal = Math.max(0, state.od - 2 * state.wt);
-    const dtVal = state.wt > 0 ? (state.od / state.wt).toFixed(1) : '—';
-    dom.legend3DValueWt.textContent = `t ${state.wt.toFixed(1)} mm · ID ${idVal.toFixed(1)} mm (D/t: ${dtVal})`;
+    const idVal = Math.max(0, state.od - 2 * tNom);
+    const dtVal = tNom > 0 ? (state.od / tNom).toFixed(1) : '—';
+    dom.legend3DValueWt.textContent = `t ${tNom.toFixed(1)} mm · ID ${idVal.toFixed(1)} mm (D/t: ${dtVal})`;
   }
 
   // When the internal mandrel is shown, fade the shell so the green
@@ -3029,7 +3050,7 @@ function update3DPipe(calc, angleOverrideDeg = null) {
   scene3D.add(pipeMesh3D);
 
   // --- Real Hollow Pipe Geometry: Inner Bore Tube & Annular Wall End Caps ---
-  const wtM = state.wt / 1000;
+  const wtM = tNom / 1000;
   const innerRadius = Math.max(0.001, pipeRadius - wtM);
   const pipeInnerGeom = new THREE.TubeGeometry(pipeCurve, tubularSegments, innerRadius, radialSegments, false);
   const pipeInnerMat = new THREE.MeshStandardMaterial({
@@ -3105,7 +3126,7 @@ function update3DPipe(calc, angleOverrideDeg = null) {
   badgeCanvas.height = 160;
   const bCtx = badgeCanvas.getContext('2d');
   bCtx.fillStyle = 'rgba(15, 23, 42, 0.92)';
-  bCtx.roundRect(6, 6, 500, 148, 14);
+  drawCanvasRoundRect(bCtx, 6, 6, 500, 148, 14);
   bCtx.fill();
   bCtx.strokeStyle = '#38bdf8';
   bCtx.lineWidth = 4;
@@ -3116,11 +3137,11 @@ function update3DPipe(calc, angleOverrideDeg = null) {
   bCtx.fillText(`BORU ET KALINLIĞI (t)`, 256, 42);
   bCtx.fillStyle = '#f8fafc';
   bCtx.font = 'bold 38px system-ui, -apple-system, sans-serif';
-  bCtx.fillText(`t = ${state.wt.toFixed(1)} mm`, 256, 88);
-  const idMM = Math.max(0, state.od - 2 * state.wt);
+  bCtx.fillText(`t = ${tNom.toFixed(1)} mm`, 256, 88);
+  const idMM = Math.max(0, state.od - 2 * tNom);
   bCtx.fillStyle = '#94a3b8';
   bCtx.font = '600 22px system-ui, -apple-system, sans-serif';
-  bCtx.fillText(`İç Çap: ${idMM.toFixed(1)} mm · D/t: ${(state.od / state.wt).toFixed(1)}`, 256, 126);
+  bCtx.fillText(`İç Çap: ${idMM.toFixed(1)} mm · D/t: ${(state.od / tNom).toFixed(1)}`, 256, 126);
 
   const badgeTex = new THREE.CanvasTexture(badgeCanvas);
   const badgeMat = new THREE.SpriteMaterial({
@@ -3147,7 +3168,7 @@ function update3DPipe(calc, angleOverrideDeg = null) {
       sCanvas.height = 140;
       const sCtx = sCanvas.getContext('2d');
       sCtx.fillStyle = bgColor;
-      sCtx.roundRect(6, 6, 448, 128, 14);
+      drawCanvasRoundRect(sCtx, 6, 6, 448, 128, 14);
       sCtx.fill();
       sCtx.strokeStyle = borderColor;
       sCtx.lineWidth = 4;
