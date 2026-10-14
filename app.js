@@ -40,6 +40,11 @@ const state = {
   // Theme & New Features
   theme: localStorage.getItem('coldbend_theme') || ((typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark'),
   bendType: 'overbend',  // overbend, sagbend, sidebend_right, sidebend_left, compound
+  compoundHoriAngle: 0,
+  compoundVertAngle: 0,
+  compoundHoriDir: 'right', // right | left
+  compoundVertDir: 'sagbend', // overbend | sagbend
+  compoundRollAngle: 0,
   clockPos: '3',         // 3, 9, 12, 6, custom
   
   // Traceability Fields
@@ -48,7 +53,21 @@ const state = {
   chainageKP: 'KP 154+280',
   pipeNo: 'P-1284',
   heatNo: 'H-9832A',
-  reportNo: 'CFB-2026-0042'
+  reportNo: 'CFB-2026-0042',
+
+  // As-Built Site Quality Control Fields
+  asBuilt: {
+    spoolNo: 'SP-01 / B-104',
+    measuredAngle: null,
+    measuredWT: null,
+    measuredOvality: null,
+    measuredRipple: 0.0,
+    inspector: '',
+    date: new Date().toISOString().split('T')[0]
+  },
+
+  // Easter Egg: Old-School Tree Bend Mode
+  isTreeBendMode: false
 };
 
 // DOM Element References
@@ -85,6 +104,8 @@ const dom = {
 
   // Route & Bend Type
   selBendType: document.getElementById('selBendType'),
+  compoundActiveInfo: document.getElementById('compoundActiveInfo'),
+  txtCompoundActiveInfo: document.getElementById('txtCompoundActiveInfo'),
   inpTargetAngle: document.getElementById('inpTargetAngle'),
   rngTargetAngle: document.getElementById('rngTargetAngle'),
   btnOpenSlopeCalc: document.getElementById('btnOpenSlopeCalc'),
@@ -109,6 +130,20 @@ const dom = {
   badgeCalculatedBendType: document.getElementById('badgeCalculatedBendType'),
   descCalculatedSlope: document.getElementById('descCalculatedSlope'),
   btnApplyCalculatedSlope: document.getElementById('btnApplyCalculatedSlope'),
+  btnOpenCompoundCalc: document.getElementById('btnOpenCompoundCalc'),
+  compoundModal: document.getElementById('compoundModal'),
+  btnCloseCompoundModal: document.getElementById('btnCloseCompoundModal'),
+  btnCloseCompoundModalX: document.getElementById('btnCloseCompoundModalX'),
+  inpHoriAngle: document.getElementById('inpHoriAngle'),
+  selHoriDir: document.getElementById('selHoriDir'),
+  inpVertAngle: document.getElementById('inpVertAngle'),
+  selVertDir: document.getElementById('selVertDir'),
+  compoundResultBox: document.getElementById('compoundResultBox'),
+  valCompound3DAngle: document.getElementById('valCompound3DAngle'),
+  valCompoundRollAngle: document.getElementById('valCompoundRollAngle'),
+  badgeCompoundType: document.getElementById('badgeCompoundType'),
+  descCompoundResult: document.getElementById('descCompoundResult'),
+  btnApplyCompoundBend: document.getElementById('btnApplyCompoundBend'),
   selRadiusMultiplier: document.getElementById('selRadiusMultiplier'),
   inpCalculatedRadius: document.getElementById('inpCalculatedRadius'),
   inpManualPulls: document.getElementById('inpManualPulls'),
@@ -188,6 +223,14 @@ const dom = {
   matValVonMises: document.getElementById('matValVonMises'),
   matValAllowCombined: document.getElementById('matValAllowCombined'),
   matValStressRatio: document.getElementById('matValStressRatio'),
+
+  // Matrix Card 6: Bending Machine Ram Force & Plastic Moment
+  badgeMachineForceMatrix: document.getElementById('badgeMachineForceMatrix'),
+  matValPlasticSectionMod: document.getElementById('matValPlasticSectionMod'),
+  matValPlasticMoment: document.getElementById('matValPlasticMoment'),
+  matValRamForceKn: document.getElementById('matValRamForceKn'),
+  matValMachineClass: document.getElementById('matValMachineClass'),
+  matValMachineStatus: document.getElementById('matValMachineStatus'),
   
   // Pulls Table
   tbodyPulls: document.getElementById('tbodyPulls'),
@@ -202,12 +245,14 @@ const dom = {
   
   // Tabs & Views
   tab2D: document.getElementById('tab2D'),
+  tabAsBuilt: document.getElementById('tabAsBuilt'),
   tab3D: document.getElementById('tab3D'),
   visInfoLabel: document.getElementById('visInfoLabel'),
   arrowStartPath: null,
   arrowEndPath: null,
   svgMethod2Group: null,
   view2D: document.getElementById('view2D'),
+  viewAsBuilt: document.getElementById('viewAsBuilt'),
   view3D: document.getElementById('view3D'),
   svgDynamicGroup: document.getElementById('svgDynamicGroup'),
   svgPrintDynamicGroup: document.getElementById('svgPrintDynamicGroup'),
@@ -215,6 +260,8 @@ const dom = {
   btnPrintCard: document.getElementById('btnPrintCard'),
   btnResetView: document.getElementById('btnResetView'),
   btnToggleLabels: document.getElementById('btnToggleLabels'),
+  btnExportDXF: document.getElementById('btnExportDXF'),
+  btnExportSVG: document.getElementById('btnExportSVG'),
   
   // 2D Controls
   svgBend2D: document.getElementById('svgBend2D'),
@@ -233,6 +280,8 @@ const dom = {
   btn3dPlay: document.getElementById('btn3dPlay'),
   btn3dStep: document.getElementById('btn3dStep'),
   animProgress: document.getElementById('animProgress'),
+  btnExitTreeMode: document.getElementById('btnExitTreeMode'),
+  badgeEasterEggThumbsUp: document.getElementById('badgeEasterEggThumbsUp'),
   legend3DValueExt: document.getElementById('legend3DValueExt'),
   legend3DValueInt: document.getElementById('legend3DValueInt'),
 
@@ -278,8 +327,55 @@ const dom = {
   prtSeamStatus: document.getElementById('prtSeamStatus'),
   prtGirthWeldStatus: document.getElementById('prtGirthWeldStatus'),
   prtCombinedStress: document.getElementById('prtCombinedStress'),
+  prtBendingForce: document.getElementById('prtBendingForce'),
+  prtMachineClass: document.getElementById('prtMachineClass'),
   prtPullsBody: document.getElementById('prtPullsBody'),
   prtPullsHead: document.getElementById('prtPullsHead'),
+
+  // As-Built Site QC Inputs & Elements
+  inpAsBuiltSpool: document.getElementById('inpAsBuiltSpool'),
+  inpAsBuiltDate: document.getElementById('inpAsBuiltDate'),
+  inpAsBuiltAngle: document.getElementById('inpAsBuiltAngle'),
+  inpAsBuiltWT: document.getElementById('inpAsBuiltWT'),
+  inpAsBuiltOvality: document.getElementById('inpAsBuiltOvality'),
+  inpAsBuiltRipple: document.getElementById('inpAsBuiltRipple'),
+  inpAsBuiltInspector: document.getElementById('inpAsBuiltInspector'),
+  btnSyncAsBuiltCalc: document.getElementById('btnSyncAsBuiltCalc'),
+  btnClearAsBuilt: document.getElementById('btnClearAsBuilt'),
+  asBuiltTargetAngle: document.getElementById('asBuiltTargetAngle'),
+  asBuiltTargetWT: document.getElementById('asBuiltTargetWT'),
+  asBuiltTargetOvality: document.getElementById('asBuiltTargetOvality'),
+  asBuiltTargetRipple: document.getElementById('asBuiltTargetRipple'),
+  asBuiltDevAngle: document.getElementById('asBuiltDevAngle'),
+  asBuiltDevWT: document.getElementById('asBuiltDevWT'),
+  asBuiltDevOvality: document.getElementById('asBuiltDevOvality'),
+  asBuiltDevRipple: document.getElementById('asBuiltDevRipple'),
+  asBuiltStatusAngle: document.getElementById('asBuiltStatusAngle'),
+  asBuiltStatusWT: document.getElementById('asBuiltStatusWT'),
+  asBuiltStatusOvality: document.getElementById('asBuiltStatusOvality'),
+  asBuiltStatusRipple: document.getElementById('asBuiltStatusRipple'),
+  badgeAsBuiltVerdict: document.getElementById('badgeAsBuiltVerdict'),
+  txtAsBuiltSummary: document.getElementById('txtAsBuiltSummary'),
+
+  // Printable Card As-Built Section
+  prtAsBuiltTable: document.getElementById('prtAsBuiltTable'),
+  prtAsBuiltTargetAngle: document.getElementById('prtAsBuiltTargetAngle'),
+  prtAsBuiltMeasAngle: document.getElementById('prtAsBuiltMeasAngle'),
+  prtAsBuiltDevAngle: document.getElementById('prtAsBuiltDevAngle'),
+  prtAsBuiltStatusAngle: document.getElementById('prtAsBuiltStatusAngle'),
+  prtAsBuiltTargetWT: document.getElementById('prtAsBuiltTargetWT'),
+  prtAsBuiltMeasWT: document.getElementById('prtAsBuiltMeasWT'),
+  prtAsBuiltDevWT: document.getElementById('prtAsBuiltDevWT'),
+  prtAsBuiltStatusWT: document.getElementById('prtAsBuiltStatusWT'),
+  prtAsBuiltMeasOvality: document.getElementById('prtAsBuiltMeasOvality'),
+  prtAsBuiltDevOvality: document.getElementById('prtAsBuiltDevOvality'),
+  prtAsBuiltStatusOvality: document.getElementById('prtAsBuiltStatusOvality'),
+  prtAsBuiltTargetRipple: document.getElementById('prtAsBuiltTargetRipple'),
+  prtAsBuiltMeasRipple: document.getElementById('prtAsBuiltMeasRipple'),
+  prtAsBuiltDevRipple: document.getElementById('prtAsBuiltDevRipple'),
+  prtAsBuiltStatusRipple: document.getElementById('prtAsBuiltStatusRipple'),
+  prtAsBuiltMeta: document.getElementById('prtAsBuiltMeta'),
+  prtAsBuiltFinalVerdict: document.getElementById('prtAsBuiltFinalVerdict'),
 
   // Global Verdict Banner
   masterVerdict: document.getElementById('masterVerdict'),
@@ -520,7 +616,8 @@ function validateClockSafety(bendType, clockPos, customAngle) {
     isSafe = true;
     badgeText = '3D KOMBİNE';
     badgeClass = 'warn';
-    desc = 'Kombine bükümde (3D kavis) dikişin bileşke sıfır moment ekseninde konumlandırıldığı sahada doğrulanmalıdır.';
+    const roll = state.compoundRollAngle ? state.compoundRollAngle.toFixed(1) : '45.0';
+    desc = `3D Bileşik Büküm (Kalıp Roll: ${roll}°): Dikişin nötr eksende kalması için boru büküm presinde ${roll}° döndürülerek bükülmelidir.`;
   }
 
   return { isSafe, badgeText, badgeClass, boxClass, lblClock, desc, angleDeg };
@@ -548,6 +645,38 @@ function getTemperatureDeratingFactor(tempC) {
     }
   }
   return 1.000;
+}
+
+/* ==========================================================================
+   Bending Machine Classification Engine (CRC-Evans / Superior / DMI PB Series)
+   ========================================================================== */
+function getBendingMachineClass(odMm, ramTon) {
+  let modelName = 'PB 16"-30"';
+  let capTon = 450;
+  if (odMm <= 508) {
+    modelName = 'PB 16"-30" (veya 6"-20")';
+    capTon = 450;
+  } else if (odMm <= 762) {
+    modelName = 'PB 22"-36" (veya 16"-30" HD)';
+    capTon = 750;
+  } else if (odMm <= 1067) {
+    modelName = 'PB 36"-48" (Ağır Hizmet)';
+    capTon = 1100;
+  } else {
+    modelName = 'PB 48"-60" (Süper Ağır Hizmet)';
+    capTon = 1600;
+  }
+  const isSufficient = ramTon <= capTon;
+  const utilPercent = Math.round((ramTon / capTon) * 100);
+  return {
+    modelName,
+    capacityTon: capTon,
+    isSufficient,
+    utilPercent,
+    statusText: isSufficient
+      ? `KAPASİTE DAHİLİ (%${utilPercent} Kullanım)`
+      : `YETERSİZ: %${utilPercent} Aşım (Daha Yüksek Sınıf Makine Gerekli!)`
+  };
 }
 
 function runCalculations() {
@@ -761,6 +890,15 @@ function runCalculations() {
   // ASME B30.20 / ASME P30.1 saha dinamik kaldırma faktörü DAF = 1.25 ile önerilen minimum sapan SWL:
   const minRecommendedSlingSwlTon = riggingSlingLoadTon * 1.25;
 
+  // --- Büküm Makinesi Plastik Momenti & Ram Tonajı Hesabı (CRC-Evans / DMI / ASME) ---
+  const D_in_mm = D - 2 * state.t_nom;
+  const Z_p_mm3 = (Math.pow(D, 3) - Math.pow(Math.max(1, D_in_mm), 3)) / 6;
+  const plasticMomentKnm = (Z_p_mm3 * S_mpa) / 1e6;
+  const dieSupportSpanM = Math.max(1.0, 2.5 * odM);
+  const ramForceKn = (4 * plasticMomentKnm) / dieSupportSpanM;
+  const ramForceTon = ramForceKn / 9.80665;
+  const machineClass = getBendingMachineClass(D, ramForceTon);
+
   const complianceChecks = [
     { key: 'tangent', label: 'Teğetler', pass: isTangentFeasible },
     { key: 'radius', label: 'Yarıçap', pass: isRadiusCompliant },
@@ -774,7 +912,8 @@ function runCalculations() {
     { key: 'ripple', label: 'Ripple', pass: isRippleCompliant },
     { key: 'girthWeld', label: 'Alın Kaynağı', pass: !state.girthWeldInBend || isGwOnPipe },
     { key: 'combinedStress', label: 'Bileşik Gerilme', pass: isCombinedStressCompliant },
-    { key: 'clamping', label: 'Kalıp Sıkma Payı', pass: isClampingSafe }
+    { key: 'clamping', label: 'Kalıp Sıkma Payı', pass: isClampingSafe },
+    { key: 'machineForce', label: 'Makine Tonajı', pass: machineClass.isSufficient }
   ];
   const failedChecks = complianceChecks.filter(c => !c.pass);
   const overallPass = failedChecks.length === 0;
@@ -854,6 +993,12 @@ function runCalculations() {
     riggingSlingLoadTon,
     minRecommendedSlingSwlTon,
     T_temp,
+    Z_p_mm3,
+    plasticMomentKnm,
+    dieSupportSpanM,
+    ramForceKn,
+    ramForceTon,
+    machineClass,
     complianceChecks,
     failedChecks,
     overallPass
@@ -889,6 +1034,18 @@ function updateUI() {
   // Radius calculation display
   dom.inpCalculatedRadius.value = `${calc.r_bend_m.toFixed(2)} m (${state.radiusMultiplier} D)`;
   dom.badgeMaxAngleInfo.textContent = `Max: ~${calc.theta_max_deg.toFixed(1)}°`;
+
+  // Compound 3D Bend Active Info Banner
+  if (dom.compoundActiveInfo && dom.txtCompoundActiveInfo) {
+    if (state.bendType === 'compound') {
+      dom.compoundActiveInfo.style.display = 'block';
+      const hStr = `${(state.compoundHoriAngle || 0).toFixed(1)}° (${state.compoundHoriDir === 'right' ? 'Sağ' : 'Sol'})`;
+      const vStr = `${(state.compoundVertAngle || 0).toFixed(1)}° (${state.compoundVertDir === 'overbend' ? 'Tepe' : 'Vadi'})`;
+      dom.txtCompoundActiveInfo.textContent = `🌐 3D Bileşik Büküm: Kalıp Roll Açısı: ${(state.compoundRollAngle || 0).toFixed(1)}° | Yatay: ${hStr} | Düşey: ${vStr}`;
+    } else {
+      dom.compoundActiveInfo.style.display = 'none';
+    }
+  }
 
   // Machine Die & Clamping Pin Clearance Helper
   if (dom.helperTangentClamping) {
@@ -1059,6 +1216,21 @@ function updateUI() {
     }
   }
 
+  // Matrix Card 6: Bending Machine Ram Force & Plastic Moment
+  if (dom.matValPlasticSectionMod) {
+    const zpExp = (calc.Z_p_mm3 / 1e6).toFixed(2);
+    dom.matValPlasticSectionMod.textContent = `${zpExp} × 10⁶ mm³`;
+    dom.matValPlasticMoment.textContent = `${Math.round(calc.plasticMomentKnm).toLocaleString('tr-TR')} kNm`;
+    dom.matValRamForceKn.textContent = `${Math.round(calc.ramForceKn).toLocaleString('tr-TR')} kN (~${Math.round(calc.ramForceTon).toLocaleString('tr-TR')} Ton)`;
+    dom.matValMachineClass.textContent = calc.machineClass.modelName;
+    dom.matValMachineStatus.textContent = calc.machineClass.statusText;
+    dom.matValMachineStatus.className = calc.machineClass.isSufficient ? 'text-success' : 'text-danger';
+    if (dom.badgeMachineForceMatrix) {
+      dom.badgeMachineForceMatrix.textContent = calc.machineClass.isSufficient ? 'UYGUN' : 'AŞIM';
+      dom.badgeMachineForceMatrix.className = `badge-pill ${calc.machineClass.isSufficient ? 'pass' : 'fail'}`;
+    }
+  }
+
   // Girth Weld Group & Dynamic Status
   if (dom.chkGirthWeld) dom.chkGirthWeld.checked = state.girthWeldInBend;
   if (dom.groupGirthWeldDist) {
@@ -1113,6 +1285,9 @@ function updateUI() {
   
   // Update Printable Card Data
   updatePrintableCard(calc);
+
+  // Update As-Built & Site QC Evaluation
+  updateAsBuiltUI(calc);
   
   // Re-render 2D Dynamic Sketch
   render2DSketch(calc);
@@ -1300,7 +1475,10 @@ function exportPullsToCSV(calc) {
   rows.push(['Boru No', state.pipeNo || '-', '', 'Heat / Döküm No', state.heatNo || '-', '', '', ''].join(';'));
   rows.push(['Nominal Dış Çap (OD)', `${state.od} mm`, '', 'Et Kalınlığı (WT)', `${state.t_nom} mm`, '', '', ''].join(';'));
   rows.push(['Korozyon Payı (CA)', `${state.ca} mm`, '', 'Çelik Kalitesi', `${state.gradeName || 'API 5L'} (SMYS: ${state.smys} MPa)`, '', '', ''].join(';'));
-  rows.push(['Büküm Tipi', state.bendType, '', 'Kaynak Dikiş Yönü', `${state.clockPos} Saat (${state.seamAngle}°)`, '', '', ''].join(';'));
+  const bendTypeCsv = state.bendType === 'compound'
+    ? `3D Bileşik Büküm (Roll: ${(state.compoundRollAngle || 0).toFixed(1)}°, Yatay: ${(state.compoundHoriAngle || 0).toFixed(2)}°, Düşey: ${(state.compoundVertAngle || 0).toFixed(2)}°)`
+    : state.bendType;
+  rows.push(['Büküm Tipi', bendTypeCsv, '', 'Kaynak Dikiş Yönü', `${state.clockPos} Saat (${state.seamAngle}°)`, '', '', ''].join(';'));
   rows.push(['Hedef Büküm Açısı', `${state.targetAngle.toFixed(2)}°`, '', 'Elastik Geri Yaylanma', `${calc.springbackDeg.toFixed(2)}°`, '', '', ''].join(';'));
   rows.push(['Hidrolik Makine Açısı', `${calc.machineAngleDeg.toFixed(2)}°`, '', 'Büküm Yarıçapı (R)', `${calc.r_bend_m.toFixed(2)} m (${state.radiusMultiplier}D)`, '', '', ''].join(';'));
   rows.push(['Toplam Boru Boyu', `${state.length.toFixed(2)} m`, '', 'Büküm Yayı Boyu', `${calc.l_bent_m.toFixed(2)} m`, '', '', ''].join(';'));
@@ -1314,6 +1492,8 @@ function exportPullsToCSV(calc) {
   rows.push(['Ovalleşme', `%${calc.estimatedOvality.toFixed(2)} (Limit: ≤ 2.50%)`, '', 'Ondülasyon (Ripple)', `${calc.estimatedRippleMm.toFixed(2)} mm (Limit: ≤ ${calc.maxAllowRippleMm.toFixed(2)} mm)`, '', '', ''].join(';'));
   rows.push(['Birim Çap Başına Açı', `${calc.actualDeflectionRatePerOD.toFixed(2)}°/D (Limit: ≤ ${calc.asmeMethod2Limit.toFixed(1)}°/D)`, '', 'Alın Kaynağı', calc.girthWeldBadge || 'YOK', '', '', ''].join(';'));
   rows.push(['Bileşik Gerilme (Von Mises)', `${calc.vonMisesStressMpa.toFixed(1)} MPa (Limit: ≤ ${calc.allowableCombinedStressMpa.toFixed(1)} MPa)`, '', 'Gerilme Kullanım Oranı', `%${calc.combinedStressRatioPercent.toFixed(1)} (${calc.isCombinedStressCompliant ? 'KABUL' : 'RET'})`, '', '', ''].join(';'));
+  rows.push(['Plastik Moment (Mp)', `${calc.plasticMomentKnm.toFixed(1)} kNm`, '', 'Tahmini Ram Kuvveti (Fram)', `${calc.ramForceKn.toFixed(0)} kN (~${calc.ramForceTon.toFixed(1)} Ton)`, '', '', ''].join(';'));
+  rows.push(['Önerilen Büküm Makinesi', `${calc.machineClass.modelName} (%${calc.machineClass.utilPercent} Kullanım - ${calc.machineClass.isSufficient ? 'KABUL' : 'RET'})`, '', 'Kalıp Mesnet Açıklığı', `${calc.dieSupportSpanM.toFixed(2)} m (~2.5D)`, '', '', ''].join(';'));
   rows.push(['GENEL HÜKÜM', calc.overallPass ? 'UYGUN (KABUL)' : 'RET (KUSURLU)', '', '', '', '', '', ''].join(';'));
   rows.push('');
   // Pulls Table Header
@@ -1412,6 +1592,13 @@ function exportPullsToJSON(calc) {
     bendDesign: {
       bendType: state.bendType,
       targetAngle_deg: state.targetAngle,
+      compoundDetails: state.bendType === 'compound' ? {
+        horizontalAngle_deg: state.compoundHoriAngle,
+        horizontalDirection: state.compoundHoriDir,
+        verticalAngle_deg: state.compoundVertAngle,
+        verticalDirection: state.compoundVertDir,
+        machineRollAngle_deg: Number((state.compoundRollAngle || 0).toFixed(1))
+      } : null,
       springbackAngle_deg: Number(calc.springbackDeg.toFixed(2)),
       machineAngle_deg: Number(calc.machineAngleDeg.toFixed(2)),
       radiusMultiplier: state.radiusMultiplier,
@@ -1447,6 +1634,13 @@ function exportPullsToJSON(calc) {
       allowableCombinedStress_mpa: Number(calc.allowableCombinedStressMpa.toFixed(1)),
       combinedStressRatioPercent: Number(calc.combinedStressRatioPercent.toFixed(1)),
       isCombinedStressCompliant: calc.isCombinedStressCompliant,
+      plasticSectionModulus_cm3: Number((calc.Z_p_mm3 / 1000).toFixed(1)),
+      plasticBendingMoment_kNm: Number(calc.plasticMomentKnm.toFixed(1)),
+      estimatedBendingRamForce_kN: Number(calc.ramForceKn.toFixed(1)),
+      estimatedBendingRamForce_ton: Number(calc.ramForceTon.toFixed(1)),
+      recommendedMachineClass: calc.machineClass.modelName,
+      isMachineCapacitySufficient: calc.machineClass.isSufficient,
+      machineUtilizationPercent: calc.machineClass.utilPercent,
       failedChecks: calc.failedChecks.map(c => ({ key: c.key, label: c.label }))
     },
     pullSchedule: {
@@ -1455,11 +1649,209 @@ function exportPullsToJSON(calc) {
       anglePerPull_deg: Number(calc.pullAnglePerStep.toFixed(2)),
       netAnglePerPull_deg: Number(calc.netAnglePerStep.toFixed(2)),
       steps: pullsList
-    }
+    },
+    siteAsBuiltVerification: calculateAsBuiltEvaluation(calc)
   };
 
   const jsonContent = JSON.stringify(exportData, null, 2);
   const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+  triggerDownload(blob, filename);
+}
+
+/* ==========================================================================
+   2D Vector CAD Drawing Exporters (AutoCAD DXF & Vector SVG)
+   ========================================================================== */
+function generateDXFContent(calc) {
+  const lines = [];
+  const add = (code, val) => { lines.push(String(code), String(val)); };
+  
+  // Header section (AutoCAD R12/2000 ASCII compatibility)
+  add(0, 'SECTION'); add(2, 'HEADER');
+  add(9, '$ACADVER'); add(1, 'AC1009');
+  add(9, '$INSUNITS'); add(70, 4); // Millimeters (1:1 real world metric)
+  add(0, 'ENDSEC');
+  
+  // Tables section: linetypes & layers
+  add(0, 'SECTION'); add(2, 'TABLES');
+  add(0, 'TABLE'); add(2, 'LTYPE'); add(70, 1);
+  add(0, 'LTYPE'); add(2, 'CENTER'); add(70, 0); add(3, 'Centerline ____ _ ____'); add(72, 65); add(73, 4); add(40, 25.0);
+  add(49, 15.0); add(49, -4.0); add(49, 2.0); add(49, -4.0);
+  add(0, 'ENDTAB');
+  
+  add(0, 'TABLE'); add(2, 'LAYER'); add(70, 5);
+  add(0, 'LAYER'); add(2, 'CENTERLINE'); add(70, 0); add(62, 3); add(6, 'CENTER'); // Green
+  add(0, 'LAYER'); add(2, 'PIPE_WALL'); add(70, 0); add(62, 7); add(6, 'CONTINUOUS'); // White
+  add(0, 'LAYER'); add(2, 'PULL_STATIONS'); add(70, 0); add(62, 4); add(6, 'CONTINUOUS'); // Cyan
+  add(0, 'LAYER'); add(2, 'MARKERS'); add(70, 0); add(62, 2); add(6, 'CONTINUOUS'); // Yellow
+  add(0, 'LAYER'); add(2, 'ANNOTATIONS'); add(70, 0); add(62, 1); add(6, 'CONTINUOUS'); // Red
+  add(0, 'ENDTAB');
+  add(0, 'ENDSEC');
+  
+  // Entities section
+  add(0, 'SECTION'); add(2, 'ENTITIES');
+  
+  const f = (n, d = 3) => Number(n).toFixed(d);
+  
+  const lineEntity = (layer, x1, y1, x2, y2) => {
+    add(0, 'LINE'); add(8, layer);
+    add(10, f(x1)); add(20, f(y1)); add(30, '0.0');
+    add(11, f(x2)); add(21, f(y2)); add(31, '0.0');
+  };
+  
+  const arcEntity = (layer, cx, cy, r, aStart, aEnd) => {
+    add(0, 'ARC'); add(8, layer);
+    add(10, f(cx)); add(20, f(cy)); add(30, '0.0');
+    add(40, f(r));
+    add(50, f(aStart)); add(51, f(aEnd));
+  };
+  
+  const circleEntity = (layer, cx, cy, r) => {
+    add(0, 'CIRCLE'); add(8, layer);
+    add(10, f(cx)); add(20, f(cy)); add(30, '0.0');
+    add(40, f(r));
+  };
+  
+  const textEntity = (layer, x, y, height, text) => {
+    add(0, 'TEXT'); add(8, layer);
+    add(10, f(x)); add(20, f(y)); add(30, '0.0');
+    add(40, f(height));
+    add(1, String(text));
+  };
+  
+  const od_mm = state.od;
+  const r_pipe = od_mm / 2;
+  const t1_mm = calc.pullStartM * 1000;
+  const R_mm = calc.r_bend_m * 1000;
+  const theta_deg = state.targetAngle;
+  const theta_rad = (theta_deg * Math.PI) / 180;
+  const t2draw_mm = Math.max(state.tangent2, state.length - calc.pullStartM - calc.r_bend_m * theta_rad) * 1000;
+  
+  const cx = t1_mm;
+  const cy = R_mm;
+  const aStart = 270.0;
+  const aEnd = 270.0 + theta_deg;
+  
+  const dirX = Math.cos(theta_rad);
+  const dirY = Math.sin(theta_rad);
+  
+  // 1. CENTERLINE (Neutral Axis)
+  lineEntity('CENTERLINE', 0, 0, t1_mm, 0);
+  arcEntity('CENTERLINE', cx, cy, R_mm, aStart, aEnd);
+  const pt_x = cx + R_mm * Math.sin(theta_rad);
+  const pt_y = cy - R_mm * Math.cos(theta_rad);
+  const end_x = pt_x + t2draw_mm * dirX;
+  const end_y = pt_y + t2draw_mm * dirY;
+  lineEntity('CENTERLINE', pt_x, pt_y, end_x, end_y);
+  
+  // 2. PIPE WALLS (Extrados & Intrados)
+  // Intrados: radius R_mm - r_pipe
+  const R_int = Math.max(100, R_mm - r_pipe);
+  lineEntity('PIPE_WALL', 0, r_pipe, t1_mm, r_pipe);
+  arcEntity('PIPE_WALL', cx, cy, R_int, aStart, aEnd);
+  const pt_int_x = cx + R_int * Math.sin(theta_rad);
+  const pt_int_y = cy - R_int * Math.cos(theta_rad);
+  const end_int_x = pt_int_x + t2draw_mm * dirX;
+  const end_int_y = pt_int_y + t2draw_mm * dirY;
+  lineEntity('PIPE_WALL', pt_int_x, pt_int_y, end_int_x, end_int_y);
+  
+  // Extrados: radius R_mm + r_pipe
+  const R_ext = R_mm + r_pipe;
+  lineEntity('PIPE_WALL', 0, -r_pipe, t1_mm, -r_pipe);
+  arcEntity('PIPE_WALL', cx, cy, R_ext, aStart, aEnd);
+  const pt_ext_x = cx + R_ext * Math.sin(theta_rad);
+  const pt_ext_y = cy - R_ext * Math.cos(theta_rad);
+  const end_ext_x = pt_ext_x + t2draw_mm * dirX;
+  const end_ext_y = pt_ext_y + t2draw_mm * dirY;
+  lineEntity('PIPE_WALL', pt_ext_x, pt_ext_y, end_ext_x, end_ext_y);
+  
+  // End caps
+  lineEntity('PIPE_WALL', 0, -r_pipe, 0, r_pipe);
+  lineEntity('PIPE_WALL', end_ext_x, end_ext_y, end_int_x, end_int_y);
+  
+  // 3. MARKERS (PC, PT, Girth Weld)
+  circleEntity('MARKERS', t1_mm, 0, r_pipe * 0.15);
+  textEntity('MARKERS', t1_mm, r_pipe * 1.5, r_pipe * 0.35, `PC (X=${(calc.pullStartM).toFixed(2)}m)`);
+  
+  circleEntity('MARKERS', pt_x, pt_y, r_pipe * 0.15);
+  textEntity('MARKERS', pt_x, pt_y + r_pipe * 1.5, r_pipe * 0.35, `PT (X=${(calc.pullEndM).toFixed(2)}m)`);
+  
+  // Girth weld marker if present
+  if (state.girthWeldInBend && calc.isGwOnPipe) {
+    const gw_dist_mm = state.girthWeldDist * 1000;
+    let gw_x = 0, gw_y = 0;
+    if (gw_dist_mm <= t1_mm) {
+      gw_x = gw_dist_mm;
+      gw_y = 0;
+      lineEntity('MARKERS', gw_x, -r_pipe * 1.2, gw_x, r_pipe * 1.2);
+    } else if (gw_dist_mm <= (t1_mm + calc.l_bent_m * 1000)) {
+      const arcDist = gw_dist_mm - t1_mm;
+      const arcAngle = (arcDist / R_mm);
+      gw_x = cx + R_mm * Math.sin(arcAngle);
+      gw_y = cy - R_mm * Math.cos(arcAngle);
+      const radX = Math.sin(arcAngle);
+      const radY = -Math.cos(arcAngle);
+      lineEntity('MARKERS', gw_x - radX * r_pipe * 1.2, gw_y - radY * r_pipe * 1.2, gw_x + radX * r_pipe * 1.2, gw_y + radY * r_pipe * 1.2);
+    } else {
+      const t2Dist = gw_dist_mm - t1_mm - calc.l_bent_m * 1000;
+      gw_x = pt_x + t2Dist * dirX;
+      gw_y = pt_y + t2Dist * dirY;
+      const perpX = -dirY;
+      const perpY = dirX;
+      lineEntity('MARKERS', gw_x - perpX * r_pipe * 1.2, gw_y - perpY * r_pipe * 1.2, gw_x + perpX * r_pipe * 1.2, gw_y + perpY * r_pipe * 1.2);
+    }
+    textEntity('MARKERS', gw_x, gw_y + r_pipe * 1.8, r_pipe * 0.35, `GW (X=${state.girthWeldDist.toFixed(2)}m - %100 RT)`);
+  }
+  
+  // 4. PULL STATIONS
+  const numPulls = calc.numPulls || 1;
+  for (let i = 1; i <= numPulls; i++) {
+    const fraction = i / numPulls;
+    const aStep = theta_rad * fraction;
+    const px = cx + R_mm * Math.sin(aStep);
+    const py = cy - R_mm * Math.cos(aStep);
+    const radX = Math.sin(aStep);
+    const radY = -Math.cos(aStep);
+    lineEntity('PULL_STATIONS', px - radX * r_pipe * 0.9, py - radY * r_pipe * 0.9, px + radX * r_pipe * 0.9, py + radY * r_pipe * 0.9);
+    textEntity('PULL_STATIONS', px, py - r_pipe * 1.4, r_pipe * 0.22, `P#${i}`);
+  }
+  
+  // 5. ANNOTATIONS & TITLE BLOCK
+  const txtH = Math.max(80, r_pipe * 0.35);
+  const infoX = 0;
+  const infoY = -r_pipe * 4.0;
+  textEntity('ANNOTATIONS', infoX, infoY, txtH * 1.2, 'COLDBEND PRO - BORU BUKUM MUHENDISLIK CIZIMI');
+  textEntity('ANNOTATIONS', infoX, infoY - txtH * 1.5, txtH, `Proje: ${state.projectName || '-'} | Hat: ${state.lineSection || '-'}`);
+  textEntity('ANNOTATIONS', infoX, infoY - txtH * 2.8, txtH, `Boru No: ${state.pipeNo || '-'} | Heat: ${state.heatNo || '-'} | Standart: ${state.standard}`);
+  textEntity('ANNOTATIONS', infoX, infoY - txtH * 4.1, txtH, `Cap: ${state.npsLabel} (${state.od} mm) | WT: ${state.t_nom} mm | SMYS: ${state.smys} MPa`);
+  textEntity('ANNOTATIONS', infoX, infoY - txtH * 5.4, txtH, `Bukum Acisi: ${state.targetAngle.toFixed(2)} deg (Makine: ${calc.machineAngleDeg.toFixed(2)} deg) | R: ${calc.r_bend_m.toFixed(2)} m (${state.radiusMultiplier}D)`);
+  textEntity('ANNOTATIONS', infoX, infoY - txtH * 6.7, txtH, `Lt1: ${state.tangent1.toFixed(2)} m | Lt2: ${calc.l_t2_actual.toFixed(2)} m | Yay: ${calc.l_bent_m.toFixed(2)} m | Pasolar: ${calc.numPulls} Adet`);
+  
+  add(0, 'ENDSEC');
+  add(0, 'EOF');
+  
+  return lines.join('\n');
+}
+
+function export2DToDXF(calc) {
+  if (!calc) calc = runCalculations();
+  const dxfContent = generateDXFContent(calc);
+  const blob = new Blob([dxfContent], { type: 'application/dxf;charset=utf-8' });
+  const safePipeNo = (state.pipeNo || 'Boru').toString().replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const filename = `ColdBend_2D_CAD_${safePipeNo}.dxf`;
+  triggerDownload(blob, filename);
+}
+
+function export2DToSVG() {
+  if (!dom.svgBend2D) return;
+  const clone = dom.svgBend2D.cloneNode(true);
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+  clone.setAttribute('width', '1000');
+  clone.setAttribute('height', '550');
+  const svgString = '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(clone);
+  const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+  const safePipeNo = (state.pipeNo || 'Boru').toString().replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const filename = `ColdBend_2D_Cizim_${safePipeNo}.svg`;
   triggerDownload(blob, filename);
 }
 
@@ -2053,6 +2445,8 @@ let girthWeldMesh3D = null;
 let pullMarkers3D = [];
 let bendCurve3D = null; // { curve, len } of the last built 3D pipe
 let machineGroup3D = null;
+let treeBendGroup3D = null;
+let secretKeyBuffer = '';
 let animLowDetail = false;
 const bendAnim = { active: false, playing: false, step: 0, total: 0, done: 0, timer: null };
 const ANIM_PRESS_MS = 380;
@@ -2299,74 +2693,181 @@ function update3DPipe(calc, angleOverrideDeg = null) {
   
   // Mathematically Continuous C1 Curve Points
   const curvePoints = [];
-  
-  // --- 1. FRONT TANGENT (Straight line along +X at Y=0, Z=0) ---
-  const numStepsT1 = 16;
-  for (let i = 0; i <= numStepsT1; i++) {
-    const fraction = i / numStepsT1;
-    const x = startX + pbStart * fraction;
-    curvePoints.push(new THREE.Vector3(x, 0, 0));
-  }
-  
-  // Point of Curvature (PC)
-  const x_pc = startX + pbStart;
-  
-  // --- 2. BENT CIRCULAR ARC (Smooth C1 tangency starting at PC) ---
-  const numStepsArc = 40;
-  const arcStartIndex = curvePoints.length - 1;
-  
-  for (let i = 1; i <= numStepsArc; i++) {
-    const fraction = i / numStepsArc;
-    const phi = thetaRad * fraction;
-    const dx = r_bend * Math.sin(phi);
-    const defl = r_bend * (1 - Math.cos(phi));
-    
-    let curX = x_pc + dx;
-    let curY = 0;
-    let curZ = 0;
-    
-    if (state.bendType === 'overbend') {
-      curY = defl; // Upward arch
-    } else if (state.bendType === 'sagbend') {
-      curY = -defl; // Downward dip
-    } else if (state.bendType === 'sidebend_right') {
-      curZ = defl; // Horizontal right
-    } else if (state.bendType === 'sidebend_left') {
-      curZ = -defl; // Horizontal left
+  let arcStartIndex = 0;
+  let arcEndIndex = 0;
+  let x_pc = 0;
+  let pt_last = null;
+  const activeBendType = state.isTreeBendMode ? 'sidebend_left' : state.bendType;
+
+  const isFeedThrough = bendAnim.active && !state.isTreeBendMode;
+
+  if (isFeedThrough) {
+    // KINEMATIC REALISM: Stationary Bending Machine at (0,0,0) & Feed-Through Pipe
+    // Pipe feeds from -X into machine die at (0,0,0). Bent arc emerges into +X.
+    const kStep = Math.max(1, Math.min(calc.numPulls, bendAnim.step || 1));
+    const s_k = pbStart + kStep * calc.pullStepPitch; // distance from front tip to active pull station
+    const l_arc_k = kStep * calc.pullStepPitch;       // realized bent arc length so far
+    const l_rear = Math.max(0, totalLength - s_k);    // unbent tail behind the die
+
+    // Tangent direction vectors at arc exit
+    let dirX = Math.cos(thetaRad);
+    let dirY = 0;
+    let dirZ = 0;
+    if (activeBendType === 'overbend') {
+      dirY = Math.sin(thetaRad);
+    } else if (activeBendType === 'sagbend') {
+      dirY = -Math.sin(thetaRad);
+    } else if (activeBendType === 'sidebend_right') {
+      dirZ = Math.sin(thetaRad);
+    } else if (activeBendType === 'sidebend_left') {
+      dirZ = -Math.sin(thetaRad);
     } else { // compound
-      curY = defl * 0.707;
-      curZ = defl * 0.707;
+      const rollRad = (state.compoundRollAngle || 45) * Math.PI / 180;
+      const vSign = state.compoundVertDir === 'sagbend' ? -1 : 1;
+      const hSign = state.compoundHoriDir === 'left' ? -1 : 1;
+      dirY = Math.sin(thetaRad) * Math.sin(rollRad) * vSign;
+      dirZ = Math.sin(thetaRad) * Math.cos(rollRad) * hSign;
     }
-    curvePoints.push(new THREE.Vector3(curX, curY, curZ));
-  }
-  
-  const arcEndIndex = curvePoints.length - 1;
-  const pt_last = curvePoints[arcEndIndex];
-  
-  // --- 3. REAR TANGENT (Straight line continuing along tangent vector) ---
-  const numStepsT2 = 16;
-  let dirX = Math.cos(thetaRad);
-  let dirY = 0;
-  let dirZ = 0;
-  if (state.bendType === 'overbend') {
-    dirY = Math.sin(thetaRad);
-  } else if (state.bendType === 'sagbend') {
-    dirY = -Math.sin(thetaRad);
-  } else if (state.bendType === 'sidebend_right') {
-    dirZ = Math.sin(thetaRad);
-  } else if (state.bendType === 'sidebend_left') {
-    dirZ = -Math.sin(thetaRad);
-  } else { // compound
-    dirY = Math.sin(thetaRad) * 0.707;
-    dirZ = Math.sin(thetaRad) * 0.707;
-  }
-  
-  for (let i = 1; i <= numStepsT2; i++) {
-    const fraction = i / numStepsT2;
-    const x = pt_last.x + t2draw3D * fraction * dirX;
-    const y = pt_last.y + t2draw3D * fraction * dirY;
-    const z = pt_last.z + t2draw3D * fraction * dirZ;
-    curvePoints.push(new THREE.Vector3(x, y, z));
+
+    // Arc tip coordinate (where front tangent attaches)
+    const arcTipX = thetaRad > 1e-6 ? r_bend * Math.sin(thetaRad) : l_arc_k;
+    const arcDefl = thetaRad > 1e-6 ? r_bend * (1 - Math.cos(thetaRad)) : 0;
+    let arcTipY = 0, arcTipZ = 0;
+    if (activeBendType === 'overbend') arcTipY = arcDefl;
+    else if (activeBendType === 'sagbend') arcTipY = -arcDefl;
+    else if (activeBendType === 'sidebend_right') arcTipZ = arcDefl;
+    else if (activeBendType === 'sidebend_left') arcTipZ = -arcDefl;
+    else {
+      const rollRad = (state.compoundRollAngle || 45) * Math.PI / 180;
+      const vSign = state.compoundVertDir === 'sagbend' ? -1 : 1;
+      const hSign = state.compoundHoriDir === 'left' ? -1 : 1;
+      arcTipY = arcDefl * Math.sin(rollRad) * vSign;
+      arcTipZ = arcDefl * Math.cos(rollRad) * hSign;
+    }
+
+    // --- 1. FRONT TANGENT (from front tip s=0 to start of arc s=pbStart) ---
+    const numStepsT1 = 16;
+    for (let i = 0; i <= numStepsT1; i++) {
+      const fraction = i / numStepsT1;
+      const distFromArc = pbStart * (1 - fraction); // i=0 is front tip, i=numStepsT1 is arc attachment
+      const x = arcTipX + distFromArc * dirX;
+      const y = arcTipY + distFromArc * dirY;
+      const z = arcTipZ + distFromArc * dirZ;
+      curvePoints.push(new THREE.Vector3(x, y, z));
+    }
+
+    // --- 2. BENT CIRCULAR ARC (from arc attachment down to the die at 0,0,0) ---
+    arcStartIndex = curvePoints.length - 1;
+    const numStepsArc = 40;
+    for (let i = 1; i <= numStepsArc; i++) {
+      const fraction = i / numStepsArc;
+      const phi = thetaRad * (1 - fraction); // fraction 0 is arcTip, fraction 1 is die (phi=0)
+      const dx = thetaRad > 1e-6 ? r_bend * Math.sin(phi) : l_arc_k * (1 - fraction);
+      const defl = thetaRad > 1e-6 ? r_bend * (1 - Math.cos(phi)) : 0;
+      let curX = dx;
+      let curY = 0;
+      let curZ = 0;
+      if (activeBendType === 'overbend') curY = defl;
+      else if (activeBendType === 'sagbend') curY = -defl;
+      else if (activeBendType === 'sidebend_right') curZ = defl;
+      else if (activeBendType === 'sidebend_left') curZ = -defl;
+      else {
+        const rollRad = (state.compoundRollAngle || 45) * Math.PI / 180;
+        const vSign = state.compoundVertDir === 'sagbend' ? -1 : 1;
+        const hSign = state.compoundHoriDir === 'left' ? -1 : 1;
+        curY = defl * Math.sin(rollRad) * vSign;
+        curZ = defl * Math.cos(rollRad) * hSign;
+      }
+      curvePoints.push(new THREE.Vector3(curX, curY, curZ));
+    }
+    arcEndIndex = curvePoints.length - 1; // at (0, 0, 0) die
+    pt_last = curvePoints[arcStartIndex];
+    x_pc = 0;
+
+    // --- 3. UNBENT REAR PIPE (straight line extending backwards along -X from die) ---
+    const numStepsT2 = 20;
+    for (let i = 1; i <= numStepsT2; i++) {
+      const fraction = i / numStepsT2;
+      const x = -l_rear * fraction; // extends from 0 to -l_rear
+      curvePoints.push(new THREE.Vector3(x, 0, 0));
+    }
+
+  } else {
+    // STANDARD / STATIC PIPE REPRESENTATION (Centered at startX = -totalLength / 2)
+    // --- 1. FRONT TANGENT (Straight line along +X at Y=0, Z=0) ---
+    const numStepsT1 = 16;
+    for (let i = 0; i <= numStepsT1; i++) {
+      const fraction = i / numStepsT1;
+      const x = startX + pbStart * fraction;
+      curvePoints.push(new THREE.Vector3(x, 0, 0));
+    }
+    
+    // Point of Curvature (PC)
+    x_pc = startX + pbStart;
+    
+    // --- 2. BENT CIRCULAR ARC (Smooth C1 tangency starting at PC) ---
+    const numStepsArc = 40;
+    arcStartIndex = curvePoints.length - 1;
+    
+    for (let i = 1; i <= numStepsArc; i++) {
+      const fraction = i / numStepsArc;
+      const phi = thetaRad * fraction;
+      const dx = r_bend * Math.sin(phi);
+      const defl = r_bend * (1 - Math.cos(phi));
+      
+      let curX = x_pc + dx;
+      let curY = 0;
+      let curZ = 0;
+      
+      if (activeBendType === 'overbend') {
+        curY = defl; // Upward arch
+      } else if (activeBendType === 'sagbend') {
+        curY = -defl; // Downward dip
+      } else if (activeBendType === 'sidebend_right') {
+        curZ = defl; // Horizontal right
+      } else if (activeBendType === 'sidebend_left') {
+        curZ = -defl; // Horizontal left
+      } else { // compound
+        const rollRad = (state.compoundRollAngle || 45) * Math.PI / 180;
+        const vSign = state.compoundVertDir === 'sagbend' ? -1 : 1;
+        const hSign = state.compoundHoriDir === 'left' ? -1 : 1;
+        curY = defl * Math.sin(rollRad) * vSign;
+        curZ = defl * Math.cos(rollRad) * hSign;
+      }
+      curvePoints.push(new THREE.Vector3(curX, curY, curZ));
+    }
+    
+    arcEndIndex = curvePoints.length - 1;
+    pt_last = curvePoints[arcEndIndex];
+    
+    // --- 3. REAR TANGENT (Straight line continuing along tangent vector) ---
+    const numStepsT2 = 16;
+    let dirX = Math.cos(thetaRad);
+    let dirY = 0;
+    let dirZ = 0;
+    if (activeBendType === 'overbend') {
+      dirY = Math.sin(thetaRad);
+    } else if (activeBendType === 'sagbend') {
+      dirY = -Math.sin(thetaRad);
+    } else if (activeBendType === 'sidebend_right') {
+      dirZ = Math.sin(thetaRad);
+    } else if (activeBendType === 'sidebend_left') {
+      dirZ = -Math.sin(thetaRad);
+    } else { // compound
+      const rollRad = (state.compoundRollAngle || 45) * Math.PI / 180;
+      const vSign = state.compoundVertDir === 'sagbend' ? -1 : 1;
+      const hSign = state.compoundHoriDir === 'left' ? -1 : 1;
+      dirY = Math.sin(thetaRad) * Math.sin(rollRad) * vSign;
+      dirZ = Math.sin(thetaRad) * Math.cos(rollRad) * hSign;
+    }
+    
+    for (let i = 1; i <= numStepsT2; i++) {
+      const fraction = i / numStepsT2;
+      const x = pt_last.x + t2draw3D * fraction * dirX;
+      const y = pt_last.y + t2draw3D * fraction * dirY;
+      const z = pt_last.z + t2draw3D * fraction * dirZ;
+      curvePoints.push(new THREE.Vector3(x, y, z));
+    }
   }
   
   // Build smooth 3D spline curve
@@ -2387,12 +2888,14 @@ function update3DPipe(calc, angleOverrideDeg = null) {
   const E_MOD = 207000; // MPa, steel
   const odM = state.od / 1000;
   const bendDir = (() => {
-    if (state.bendType === 'overbend') return { x: 0, y: 1, z: 0 };
-    if (state.bendType === 'sagbend') return { x: 0, y: -1, z: 0 };
-    if (state.bendType === 'sidebend_right') return { x: 0, y: 0, z: 1 };
-    if (state.bendType === 'sidebend_left') return { x: 0, y: 0, z: -1 };
-    const s = Math.SQRT1_2;
-    return { x: 0, y: s, z: s };
+    if (activeBendType === 'overbend') return { x: 0, y: 1, z: 0 };
+    if (activeBendType === 'sagbend') return { x: 0, y: -1, z: 0 };
+    if (activeBendType === 'sidebend_right') return { x: 0, y: 0, z: 1 };
+    if (activeBendType === 'sidebend_left') return { x: 0, y: 0, z: -1 };
+    const rollRad = (state.compoundRollAngle || 45) * Math.PI / 180;
+    const vSign = state.compoundVertDir === 'sagbend' ? -1 : 1;
+    const hSign = state.compoundHoriDir === 'left' ? -1 : 1;
+    return { x: 0, y: Math.sin(rollRad) * vSign, z: Math.cos(rollRad) * hSign };
   })();
   const arcPts = [];
   for (let k = arcStartIndex; k <= arcEndIndex; k++) {
@@ -2400,7 +2903,9 @@ function update3DPipe(calc, angleOverrideDeg = null) {
     arcPts.push(p.x, p.y, p.z);
   }
   const arcCount = arcPts.length / 3;
-  const spanX = pt_last.x - x_pc;
+  const x_arc_min = Math.min(x_pc, pt_last.x);
+  const x_arc_max = Math.max(x_pc, pt_last.x);
+  const spanX = Math.max(x_arc_max - x_arc_min, 1e-9);
   const feather = Math.max(spanX * 0.06, 1e-9);
   const themeIsLight = document.body.classList.contains('light-theme');
   // Neutral steel base (theme-aware so tangents read on both backgrounds)
@@ -2422,8 +2927,8 @@ function update3DPipe(calc, angleOverrideDeg = null) {
 
     // Bend-zone mask with feathered edges (0 on tangents, 1 inside arc)
     let m = 0;
-    if (spanX > 1e-9 && vx >= x_pc && vx <= pt_last.x) {
-      const edge = Math.min(vx - x_pc, pt_last.x - vx) / feather;
+    if (spanX > 1e-9 && vx >= x_arc_min && vx <= x_arc_max) {
+      const edge = Math.min(vx - x_arc_min, x_arc_max - vx) / feather;
       const f = Math.min(1, edge);
       m = f * f * (3 - 2 * f);
     }
@@ -2646,10 +3151,21 @@ function update3DPipe(calc, angleOverrideDeg = null) {
   // live orbit target here so sidebar edits don't yank the camera.
   const endPt = curvePoints[curvePoints.length - 1];
   pipeCenter3D = {
-    x: (startX + endPt.x) / 2,
-    y: endPt.y / 2,
-    z: endPt.z / 2
+    x: (curvePoints[0].x + endPt.x) / 2,
+    y: (curvePoints[0].y + endPt.y) / 2,
+    z: (curvePoints[0].z + endPt.z) / 2
   };
+
+  // Sync Easter Egg Scene (Tree, Worker & Excavators) if active
+  if (state.isTreeBendMode) {
+    if (!treeBendGroup3D) {
+      treeBendGroup3D = buildTreeBendScene(pipeRadius, calc);
+      scene3D.add(treeBendGroup3D);
+    }
+    updateTreeBendSceneAt(calc, bendAnim.active ? bendAnim.step : (selectedPullIndex || calc.numPulls));
+  } else if (treeBendGroup3D) {
+    removeTreeBendScene();
+  }
 }
 
 /* ==========================================================================
@@ -2671,14 +3187,36 @@ function buildBendingMachine(pr) {
   };
   const W = pr * 2.4;
   const colH = pr * 7;
+  const groundY = -2.5;
+
+  // Sturdy ground skid frame (Zemin kızağı ve şasi yatağı)
+  add(new THREE.BoxGeometry(W * 2.8, 0.4, 4.2), frameMat, 0, groundY + 0.2, 0);
+  add(new THREE.BoxGeometry(0.35, 0.45, 4.8), dieMat, -W * 1.3, groundY + 0.22, 0);
+  add(new THREE.BoxGeometry(0.35, 0.45, 4.8), dieMat, W * 1.3, groundY + 0.22, 0);
+
+  // Vertical support columns down to ground
+  const legH = Math.max(0.1, -pr - (groundY + 0.4));
+  add(new THREE.BoxGeometry(pr * 1.0, legH, pr * 1.6), frameMat, -W, groundY + 0.4 + legH / 2, 0);
+  add(new THREE.BoxGeometry(pr * 1.0, legH, pr * 1.6), frameMat, W, groundY + 0.4 + legH / 2, 0);
+
+  // Upper portal press frame
   add(new THREE.BoxGeometry(pr * 1.0, colH, pr * 1.6), frameMat, -W, colH / 2 - pr, 0);
   add(new THREE.BoxGeometry(pr * 1.0, colH, pr * 1.6), frameMat, W, colH / 2 - pr, 0);
   add(new THREE.BoxGeometry(W * 2 + pr, pr * 1.2, pr * 1.8), frameMat, 0, colH - pr * 0.4, 0);
+
+  // Hydraulic Ram cylinder & press shoe
   add(new THREE.CylinderGeometry(pr * 0.8, pr * 0.8, pr * 2.2, 20), ramMat, 0, colH - pr * 2.2, 0);
   const ram = add(new THREE.BoxGeometry(pr * 2.0, pr * 0.9, pr * 1.4), ramMat, 0, pr * 1.9, 0);
   add(new THREE.BoxGeometry(pr * 2.0, pr * 0.7, pr * 1.4), dieMat, 0, pr * 1.0, 0);
+
+  // Bottom Stiffback & Bending Saddle Die
   add(new THREE.BoxGeometry(pr * 1.2, pr * 0.6, pr * 2.2), dieMat, -pr * 1.6, -pr * 0.2, 0);
   add(new THREE.BoxGeometry(pr * 1.2, pr * 0.6, pr * 2.2), dieMat, pr * 1.6, -pr * 0.2, 0);
+
+  // Hydraulic Power Unit & Engine Pack on the side
+  add(new THREE.BoxGeometry(pr * 1.5, 1.1, 1.8), ramMat, -W - pr * 1.4, groundY + 0.95, 0);
+  add(new THREE.CylinderGeometry(0.08, 0.08, 0.9, 8), dieMat, -W - pr * 1.4, groundY + 1.8, 0.4);
+
   group.userData.ram = ram;
   group.userData.ramBaseY = pr * 1.9;
   group.userData.pr = pr;
@@ -2693,6 +3231,435 @@ function removeBendingMachine() {
   });
   if (scene3D) scene3D.remove(machineGroup3D);
   machineGroup3D = null;
+}
+
+function removeTreeBendScene() {
+  if (!treeBendGroup3D) return;
+  treeBendGroup3D.traverse((o) => {
+    if (o.geometry) o.geometry.dispose();
+    if (o.material) o.material.dispose();
+  });
+  if (scene3D) scene3D.remove(treeBendGroup3D);
+  treeBendGroup3D = null;
+}
+
+/* ==========================================================================
+   Easter Egg: Old-School Tree Bend 3D Scene (Fixed Tree, Worker & Excavators)
+   ========================================================================== */
+
+function buildTreeBendScene(pr, calc) {
+  const group = new THREE.Group();
+  group.name = 'treeBendEasterEggGroup';
+
+  // Materials
+  const barkMat = new THREE.MeshStandardMaterial({ color: 0x4a2e18, roughness: 0.95, metalness: 0.05 });
+  const leafMatDark = new THREE.MeshStandardMaterial({ color: 0x1b4332, roughness: 0.8, metalness: 0.1 });
+  const leafMatMid = new THREE.MeshStandardMaterial({ color: 0x2d6a4f, roughness: 0.8, metalness: 0.1 });
+  const leafMatLight = new THREE.MeshStandardMaterial({ color: 0x40916c, roughness: 0.75, metalness: 0.1 });
+  const yellowExcavatorMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.45, metalness: 0.4 });
+  const darkSteelMat = new THREE.MeshStandardMaterial({ color: 0x1e242d, roughness: 0.65, metalness: 0.75 });
+  const chromeMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.1, metalness: 0.95 });
+  const glassMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.1, metalness: 0.9, transparent: true, opacity: 0.75 });
+  const skinMat = new THREE.MeshStandardMaterial({ color: 0xfde047, roughness: 0.8 });
+  const vestMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.5, metalness: 0.1 });
+  const reflectiveStripeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.2, metalness: 0.8, emissive: 0xf8fafc, emissiveIntensity: 0.4 });
+  const hardHatMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.3, metalness: 0.4 });
+  const pantsMat = new THREE.MeshStandardMaterial({ color: 0x1e3a5f, roughness: 0.8 });
+  const bootsMat = new THREE.MeshStandardMaterial({ color: 0x27272a, roughness: 0.9 });
+
+  // 1. ANCHORED STURDY TREE (Sabit Ağaç - Boruya orantılı daha kalın gövdeli)
+  const treeGroup = new THREE.Group();
+  const treeR = Math.max(0.85, pr * 2.4); // substantially thicker trunk than pipe diameter
+  const trunkH = Math.max(7.5, pr * 12);
+  const groundY = -2.5; // Exactly at 3D ground grid level
+
+  // Trunk
+  const trunkGeom = new THREE.CylinderGeometry(treeR * 0.85, treeR * 1.25, trunkH, 16);
+  const trunk = new THREE.Mesh(trunkGeom, barkMat);
+  trunk.position.y = trunkH / 2 + groundY;
+  treeGroup.add(trunk);
+
+  // Root flares at the base anchored into the ground
+  for (let r = 0; r < 5; r++) {
+    const rot = (r / 5) * Math.PI * 2;
+    const rootGeom = new THREE.ConeGeometry(treeR * 0.35, treeR * 1.5, 8);
+    const root = new THREE.Mesh(rootGeom, barkMat);
+    root.rotation.x = Math.PI * 0.45;
+    root.rotation.y = rot;
+    root.position.set(Math.cos(rot) * treeR * 0.95, groundY + treeR * 0.25, Math.sin(rot) * treeR * 0.95);
+    treeGroup.add(root);
+  }
+
+  // Canopy foliage spheres
+  const addCanopySphere = (rad, x, y, z, mat) => {
+    const geom = new THREE.SphereGeometry(rad, 12, 10);
+    const sph = new THREE.Mesh(geom, mat);
+    sph.position.set(x, y + groundY, z);
+    treeGroup.add(sph);
+  };
+  addCanopySphere(treeR * 2.6, 0, trunkH * 0.85, 0, leafMatDark);
+  addCanopySphere(treeR * 2.2, treeR * 0.9, trunkH * 0.95, treeR * 0.6, leafMatMid);
+  addCanopySphere(treeR * 2.1, -treeR * 0.8, trunkH * 0.92, -treeR * 0.6, leafMatLight);
+  addCanopySphere(treeR * 1.9, 0, trunkH * 1.15, 0, leafMatMid);
+
+  group.add(treeGroup);
+
+  // 2. FIELD WORKER (Şantiye Kıyafetli İnsan - 68" / 1.72m Boy, 2/3 Gövde Oranı)
+  const workerGroup = new THREE.Group();
+
+  // Boots
+  const bootGeom = new THREE.BoxGeometry(0.10, 0.08, 0.22);
+  const leftBoot = new THREE.Mesh(bootGeom, bootsMat);
+  leftBoot.position.set(-0.09, 0.04, 0.03);
+  workerGroup.add(leftBoot);
+  const rightBoot = new THREE.Mesh(bootGeom, bootsMat);
+  rightBoot.position.set(0.09, 0.04, 0.03);
+  workerGroup.add(rightBoot);
+
+  // Legs (İş pantolonu)
+  const legGeom = new THREE.CylinderGeometry(0.06, 0.065, 0.76, 8);
+  const leftLeg = new THREE.Mesh(legGeom, pantsMat);
+  leftLeg.position.set(-0.09, 0.46, 0);
+  workerGroup.add(leftLeg);
+  const rightLeg = new THREE.Mesh(legGeom, pantsMat);
+  rightLeg.position.set(0.09, 0.46, 0);
+  workerGroup.add(rightLeg);
+
+  // Torso & Reflective Safety Vest (2/3 oranında gövde: 0.25m x 0.16m x 0.52m)
+  const torsoGeom = new THREE.BoxGeometry(0.25, 0.52, 0.16);
+  const torso = new THREE.Mesh(torsoGeom, vestMat);
+  torso.position.set(0, 1.10, 0);
+  workerGroup.add(torso);
+
+  // Reflective stripes
+  const stripeH = new THREE.Mesh(new THREE.BoxGeometry(0.256, 0.05, 0.166), reflectiveStripeMat);
+  stripeH.position.set(0, 1.05, 0);
+  workerGroup.add(stripeH);
+  const stripeV1 = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.24, 0.166), reflectiveStripeMat);
+  stripeV1.position.set(-0.07, 1.22, 0);
+  workerGroup.add(stripeV1);
+  const stripeV2 = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.24, 0.166), reflectiveStripeMat);
+  stripeV2.position.set(0.07, 1.22, 0);
+  workerGroup.add(stripeV2);
+
+  // Head & Hard Hat (Sarı Baret - Toplam Boy: 1.72m / 68")
+  const neckGeom = new THREE.CylinderGeometry(0.045, 0.05, 0.06, 8);
+  const neck = new THREE.Mesh(neckGeom, skinMat);
+  neck.position.set(0, 1.39, 0);
+  workerGroup.add(neck);
+
+  const headGeom = new THREE.SphereGeometry(0.10, 10, 8);
+  const head = new THREE.Mesh(headGeom, skinMat);
+  head.position.set(0, 1.48, 0);
+  workerGroup.add(head);
+
+  const hatDome = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.5), hardHatMat);
+  hatDome.position.set(0, 1.52, 0);
+  workerGroup.add(hatDome);
+  const hatBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.018, 12), hardHatMat);
+  hatBrim.position.set(0, 1.50, 0.02);
+  workerGroup.add(hatBrim);
+
+  // Left Arm
+  const leftArm = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.52, 8), vestMat);
+  leftArm.position.set(-0.16, 1.08, 0);
+  leftArm.rotation.z = 0.12;
+  workerGroup.add(leftArm);
+
+  // Right Arm (Articulated for Thumbs-Up 👍)
+  const rightArmPivot = new THREE.Group();
+  rightArmPivot.position.set(0.16, 1.30, 0);
+
+  const rightArmMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.04, 0.48, 8), vestMat);
+  rightArmMesh.position.set(0, -0.22, 0);
+  rightArmPivot.add(rightArmMesh);
+
+  // Fist & Upward Thumb
+  const fistMesh = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), skinMat);
+  fistMesh.position.set(0, -0.48, 0);
+  rightArmPivot.add(fistMesh);
+
+  const thumbMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.09, 6), skinMat);
+  thumbMesh.position.set(0.03, -0.44, 0.03);
+  thumbMesh.rotation.z = -0.5;
+  thumbMesh.rotation.x = -0.4;
+  rightArmPivot.add(thumbMesh);
+
+  workerGroup.add(rightArmPivot);
+  workerGroup.position.set(0, groundY, 0);
+  group.add(workerGroup);
+
+  // 3. EXCAVATORS (CAT 330 Sınıfı Boru Hattı Ekskavatörü & Sıfır Sapmalı Boru Kıskacı)
+  const R_reach = 5.2; // Kol uzanma mesafesi (merkezden boru kıskacı eksenine)
+  const H_reach = 2.5; // Palet tabanından boru merkezine (Y=0) dikey yükseklik
+
+  function createExcavator() {
+    const exc = new THREE.Group();
+
+    // A. Undercarriage (Paletler ve Şasi)
+    const trackGeom = new THREE.BoxGeometry(4.8, 0.85, 0.62);
+    const leftTrack = new THREE.Mesh(trackGeom, darkSteelMat);
+    leftTrack.position.set(0, 0.42, -1.15);
+    exc.add(leftTrack);
+
+    const rightTrack = new THREE.Mesh(trackGeom, darkSteelMat);
+    rightTrack.position.set(0, 0.42, 1.15);
+    exc.add(rightTrack);
+
+    // Track sprockets & idlers
+    const sprocGeom = new THREE.CylinderGeometry(0.38, 0.38, 0.64, 12);
+    sprocGeom.rotateX(Math.PI / 2);
+    const sp1 = new THREE.Mesh(sprocGeom, darkSteelMat);
+    sp1.position.set(-2.2, 0.42, -1.15);
+    exc.add(sp1);
+    const sp2 = new THREE.Mesh(sprocGeom, darkSteelMat);
+    sp2.position.set(2.2, 0.42, -1.15);
+    exc.add(sp2);
+    const sp3 = new THREE.Mesh(sprocGeom, darkSteelMat);
+    sp3.position.set(-2.2, 0.42, 1.15);
+    exc.add(sp3);
+    const sp4 = new THREE.Mesh(sprocGeom, darkSteelMat);
+    sp4.position.set(2.2, 0.42, 1.15);
+    exc.add(sp4);
+
+    // Carbody & slewing ring
+    const carbody = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.45, 1.8), darkSteelMat);
+    carbody.position.set(0, 0.55, 0);
+    exc.add(carbody);
+
+    const slewingRing = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.2, 16), darkSteelMat);
+    slewingRing.position.set(0, 0.85, 0);
+    exc.add(slewingRing);
+
+    // B. Upperstructure (Gövde, Kabin, Karşı Ağırlık)
+    const upper = new THREE.Group();
+    upper.position.set(0, 0.95, 0);
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.15, 2.3), yellowExcavatorMat);
+    body.position.set(-0.25, 0.6, 0);
+    upper.add(body);
+
+    const counterweight = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.12, 2.28), darkSteelMat);
+    counterweight.position.set(-1.8, 0.6, 0);
+    upper.add(counterweight);
+
+    const chevron = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.22, 2.1), reflectiveStripeMat);
+    chevron.position.set(-2.23, 0.55, 0);
+    upper.add(chevron);
+
+    const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.8, 8), darkSteelMat);
+    exhaust.position.set(-1.1, 1.5, -0.65);
+    upper.add(exhaust);
+
+    // Operator Cab
+    const cab = new THREE.Group();
+    cab.position.set(0.45, 0.65, 0.65);
+    const cabBody = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.35, 0.92), yellowExcavatorMat);
+    cab.add(cabBody);
+    const windshield = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.95, 0.93), glassMat);
+    windshield.position.set(0.3, 0.15, 0);
+    cab.add(windshield);
+    const sideWindow = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.75, 0.94), glassMat);
+    sideWindow.position.set(-0.15, 0.2, 0);
+    cab.add(sideWindow);
+    upper.add(cab);
+
+    // C. Heavy Monoblock Boom & Chrome Hydraulic Lift Cylinders
+    const boomPivot = new THREE.Group();
+    boomPivot.position.set(0.9, 0.7, -0.2);
+
+    // Dual chrome lift cylinders
+    const cyl1 = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.8, 10), darkSteelMat);
+    cyl1.position.set(-0.2, 0.5, -0.32);
+    cyl1.rotation.z = -Math.PI * 0.28;
+    boomPivot.add(cyl1);
+    const rod1 = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 1.3, 10), chromeMat);
+    rod1.position.set(0.4, 1.1, -0.32);
+    rod1.rotation.z = -Math.PI * 0.28;
+    boomPivot.add(rod1);
+
+    const cyl2 = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.8, 10), darkSteelMat);
+    cyl2.position.set(-0.2, 0.5, 0.32);
+    cyl2.rotation.z = -Math.PI * 0.28;
+    boomPivot.add(cyl2);
+    const rod2 = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 1.3, 10), chromeMat);
+    rod2.position.set(0.4, 1.1, 0.32);
+    rod2.rotation.z = -Math.PI * 0.28;
+    boomPivot.add(rod2);
+
+    const boomBase = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.45, 0.4), yellowExcavatorMat);
+    boomBase.position.set(1.0, 1.1, 0);
+    boomBase.rotation.z = Math.PI * 0.26;
+    boomPivot.add(boomBase);
+
+    const boomElbow = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.4, 0.36), yellowExcavatorMat);
+    boomElbow.position.set(2.4, 1.75, 0);
+    boomElbow.rotation.z = -Math.PI * 0.12;
+    boomPivot.add(boomElbow);
+
+    upper.add(boomPivot);
+
+    // Stick / Arm
+    const stick = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.35, 0.3), yellowExcavatorMat);
+    stick.position.set(4.4, 2.05 - 0.95, -0.2);
+    stick.rotation.z = -Math.PI * 0.38;
+    upper.add(stick);
+
+    const stickCyl = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 1.6, 8), darkSteelMat);
+    stickCyl.position.set(2.8, 2.55 - 0.95, -0.2);
+    stickCyl.rotation.z = -Math.PI * 0.18;
+    upper.add(stickCyl);
+    const stickRod = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.1, 8), chromeMat);
+    stickRod.position.set(3.6, 2.35 - 0.95, -0.2);
+    stickRod.rotation.z = -Math.PI * 0.18;
+    upper.add(stickRod);
+
+    // D. Specialized Pipeline Clamp Tool (Sıfır Sapmalı Boru Tutucu)
+    // Centered exactly at local (R_reach = 5.2, H_reach = 2.5, 0)
+    const clampGroup = new THREE.Group();
+    clampGroup.position.set(R_reach, H_reach - 0.95, 0);
+
+    const rotator = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.3, 12), darkSteelMat);
+    rotator.position.set(0, 0.25, 0);
+    clampGroup.add(rotator);
+
+    const collarGeom = new THREE.TorusGeometry(pr + 0.035, 0.045, 10, 24);
+    collarGeom.rotateY(Math.PI / 2);
+    const clampCollar = new THREE.Mesh(collarGeom, darkSteelMat);
+    clampGroup.add(clampCollar);
+
+    const jaw1 = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.08, 0.12), darkSteelMat);
+    jaw1.position.set(0, pr + 0.05, -pr * 0.7);
+    clampGroup.add(jaw1);
+    const jaw2 = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.08, 0.12), darkSteelMat);
+    jaw2.position.set(0, pr + 0.05, pr * 0.7);
+    clampGroup.add(jaw2);
+
+    upper.add(clampGroup);
+    exc.add(upper);
+
+    exc.userData = {
+      R_reach,
+      H_reach,
+      upper,
+      clampGroup
+    };
+
+    return exc;
+  }
+
+  const excavatorLeft = createExcavator();
+  const excavatorRight = createExcavator();
+  group.add(excavatorLeft);
+  group.add(excavatorRight);
+
+  group.userData = {
+    treeGroup,
+    trunk,
+    treeR,
+    groundY,
+    workerGroup,
+    rightArmPivot,
+    excavatorLeft,
+    excavatorRight,
+    R_reach,
+    pr
+  };
+
+  return group;
+}
+
+function updateTreeBendSceneAt(calc, stepIndex) {
+  if (!treeBendGroup3D || !treeBendGroup3D.userData) return;
+  const ud = treeBendGroup3D.userData;
+  const pr = ud.pr;
+  const totalLength = state.length;
+  const startX = -totalLength / 2;
+  const pbStart = calc.pullStartM;
+
+  // Midpoint of bend arc for fixed tree positioning
+  const midArcDist = pbStart + (calc.l_arc_m || 8) / 2;
+  const treeX = startX + midArcDist;
+
+  // Tree stands fixed on ground, touching pipe intrados
+  const treeZ = -(ud.treeR + pr);
+  ud.treeGroup.position.set(treeX, 0, treeZ);
+
+  // Field foreman standing safely behind the tree (further in -Z)
+  // Absolutely no clipping with the pipe at any deflection angle
+  const workerZ = treeZ - ud.treeR - 1.2;
+  const workerX = treeX + ud.treeR + 0.85;
+  ud.workerGroup.position.set(workerX, ud.groundY, workerZ);
+  ud.workerGroup.rotation.y = -Math.PI * 0.22;
+
+  // Position excavators at pipe ends with exact zero-offset clamp lock
+  if (bendCurve3D && bendCurve3D.curve) {
+    const ptStart = bendCurve3D.curve.getPointAt(0);
+    const ptEnd = bendCurve3D.curve.getPointAt(1);
+    const tangEnd = bendCurve3D.curve.getTangentAt(1).normalize();
+    const R_reach = ud.R_reach || 5.2;
+
+    // Left excavator holding pipe start
+    ud.excavatorLeft.position.set(ptStart.x - R_reach, ud.groundY, ptStart.z);
+    ud.excavatorLeft.rotation.y = 0;
+
+    // Right excavator holding pipe end
+    const excRx = ptEnd.x + R_reach * tangEnd.x;
+    const excRz = ptEnd.z + R_reach * tangEnd.z;
+    ud.excavatorRight.position.set(excRx, ud.groundY, excRz);
+    ud.excavatorRight.rotation.y = Math.atan2(-tangEnd.z, -tangEnd.x);
+  }
+
+  // Thumbs up logic when bend is completed!
+  const isComplete = (stepIndex >= calc.numPulls);
+  if (isComplete) {
+    // Raise arm and give prominent THUMBS UP! 👍
+    ud.rightArmPivot.rotation.x = -Math.PI * 0.52;
+    ud.rightArmPivot.rotation.y = 0.25;
+    ud.rightArmPivot.rotation.z = -0.15;
+    if (dom.badgeEasterEggThumbsUp) {
+      dom.badgeEasterEggThumbsUp.style.display = 'inline-block';
+      dom.badgeEasterEggThumbsUp.textContent = '👷 Şantiye Şefi: Tamamdır Usta! 👍';
+    }
+  } else {
+    // Directing arm gesture during bending
+    const wave = Math.sin((stepIndex || 1) * 1.8) * 0.35;
+    ud.rightArmPivot.rotation.x = -0.45 + wave;
+    ud.rightArmPivot.rotation.y = 0.4;
+    ud.rightArmPivot.rotation.z = -0.2;
+    if (dom.badgeEasterEggThumbsUp) {
+      dom.badgeEasterEggThumbsUp.style.display = 'none';
+    }
+  }
+}
+
+function enterTreeBendMode() {
+  state.isTreeBendMode = true;
+  stopBendAnimation(false);
+  removeBendingMachine();
+  removeTreeBendScene();
+  const calc = runCalculations();
+  const pr = (state.od / 1000) / 2;
+  treeBendGroup3D = buildTreeBendScene(pr, calc);
+  if (scene3D) scene3D.add(treeBendGroup3D);
+  update3DPipe(calc);
+  if (dom.btnExitTreeMode) dom.btnExitTreeMode.style.display = 'inline-block';
+  if (dom.visInfoLabel) dom.visInfoLabel.textContent = '🌳 Gizli Mod: Şantiye Ağaç & Ekskavatör Bükümü (Çıkış: ESC)';
+  if (dom.badgeEasterEggThumbsUp) {
+    dom.badgeEasterEggThumbsUp.style.display = 'inline-block';
+    dom.badgeEasterEggThumbsUp.textContent = '🚜 Ağaç Bükümü Modu Aktif! "▶ Bükümü Oynat"a basın';
+  }
+}
+
+function exitTreeBendMode() {
+  state.isTreeBendMode = false;
+  stopBendAnimation(false);
+  removeTreeBendScene();
+  if (dom.btnExitTreeMode) dom.btnExitTreeMode.style.display = 'none';
+  if (dom.badgeEasterEggThumbsUp) dom.badgeEasterEggThumbsUp.style.display = 'none';
+  if (dom.visInfoLabel) dom.visInfoLabel.textContent = '3D WebGL Modeli • Canlı Güncelleme';
+  ensureMachine();
+  update3DPipe(runCalculations());
 }
 
 function placeBendingMachineAt(sMeters) {
@@ -2729,25 +3696,49 @@ function syncAnimUI() {
 }
 
 function ensureMachine() {
-  if (machineGroup3D || !scene3D || typeof THREE === 'undefined') return;
-  machineGroup3D = buildBendingMachine((state.od / 1000) / 2);
-  scene3D.add(machineGroup3D);
+  if (!scene3D || typeof THREE === 'undefined') return;
+  if (state.isTreeBendMode) {
+    if (!treeBendGroup3D) {
+      removeBendingMachine();
+      const calc = runCalculations();
+      treeBendGroup3D = buildTreeBendScene((state.od / 1000) / 2, calc);
+      scene3D.add(treeBendGroup3D);
+    }
+    return;
+  }
+  if (treeBendGroup3D) {
+    removeTreeBendScene();
+  }
+  if (!machineGroup3D) {
+    machineGroup3D = buildBendingMachine((state.od / 1000) / 2);
+    scene3D.add(machineGroup3D);
+  }
 }
 
-// Render animation step k (1-based): bend grows to k net pulls, machine
-// parks at that pull station with the ram pressed.
+// Render animation step k (1-based): bend grows to k net pulls with pipe
+// feeding through stationary bending machine anchored at (0,0,0).
 function renderAnimStep(k) {
   const calc = runCalculations();
   const ang = state.targetAngle * (k / Math.max(1, calc.numPulls));
   animLowDetail = true;
+  bendAnim.step = k;
   try {
     update3DPipe(calc, ang);
   } finally {
     animLowDetail = false; // never leak low-detail mode into static views
   }
-  setRamPressed(true);
-  placeBendingMachineAt(calc.pullStartM + calc.pullStepPitch * Math.max(1, k));
-  bendAnim.step = k;
+  if (state.isTreeBendMode) {
+    updateTreeBendSceneAt(calc, k);
+  } else {
+    setRamPressed(true);
+    if (machineGroup3D) {
+      machineGroup3D.position.set(0, 0, 0);
+      machineGroup3D.quaternion.setFromUnitVectors(
+        new THREE.Vector3(0, 0, 1),
+        new THREE.Vector3(1, 0, 0)
+      );
+    }
+  }
   syncAnimUI();
 }
 
@@ -2773,7 +3764,15 @@ function startBendAnimation() {
   bendAnim.total = calc.numPulls;
   if (bendAnim.step >= calc.numPulls) bendAnim.step = 0;
   ensureMachine();
-  if (!machineGroup3D) return;
+  if (!state.isTreeBendMode && machineGroup3D) {
+    machineGroup3D.position.set(0, 0, 0);
+    machineGroup3D.quaternion.setFromUnitVectors(
+      new THREE.Vector3(0, 0, 1),
+      new THREE.Vector3(1, 0, 0)
+    );
+  }
+  if (!state.isTreeBendMode && !machineGroup3D) return;
+  if (state.isTreeBendMode && !treeBendGroup3D) return;
   bendAnim.active = true;
   bendAnim.playing = true;
   syncAnimUI();
@@ -2791,10 +3790,202 @@ function stopBendAnimation(restoreStatic, keepFinal) {
   bendAnim.step = 0;
   bendAnim.done = (keepFinal && bendAnim.total > 0) ? bendAnim.total : 0;
   animLowDetail = false;
-  removeBendingMachine();
+  if (!state.isTreeBendMode) {
+    removeBendingMachine();
+  } else if (treeBendGroup3D && keepFinal) {
+    const calc = runCalculations();
+    updateTreeBendSceneAt(calc, calc.numPulls);
+  }
   syncAnimUI();
   if (restoreStatic && wasActive && dom.view3D.classList.contains('active')) {
     update3DPipe(runCalculations());
+  }
+}
+
+/* ==========================================================================
+   As-Built Physical Measurement & Site QC Compliance Evaluation
+   ASME B31.8 Md. 841.2.3, ASME B31.4 Md. 406.2.1, BOTAŞ 5120 Rev 7
+   ========================================================================== */
+
+function calculateAsBuiltEvaluation(calc) {
+  const targetAngle = state.targetAngle || 0;
+  const t_min = calc.t_min_design || 0;
+  const maxAllowOvality = 2.50; // ASME limit %2.5
+  const maxAllowRipple = calc.maxAllowRippleMm || (state.od * 0.01);
+
+  const measAngle = state.asBuilt.measuredAngle;
+  const measWT = state.asBuilt.measuredWT;
+  const measOvality = state.asBuilt.measuredOvality;
+  const measRipple = state.asBuilt.measuredRipple;
+
+  const hasAnyInput = (measAngle !== null && !isNaN(measAngle)) ||
+                      (measWT !== null && !isNaN(measWT)) ||
+                      (measOvality !== null && !isNaN(measOvality)) ||
+                      (measRipple !== null && !isNaN(measRipple) && measRipple > 0);
+
+  let angleDev = null;
+  let angleStatus = 'neutral';
+  if (measAngle !== null && !isNaN(measAngle)) {
+    angleDev = Number(measAngle) - targetAngle;
+    const absDev = Math.abs(angleDev);
+    if (absDev <= 0.20) {
+      angleStatus = 'pass';
+    } else if (absDev <= 0.50) {
+      angleStatus = 'warn';
+    } else {
+      angleStatus = 'fail';
+    }
+  }
+
+  let wtDev = null;
+  let wtStatus = 'neutral';
+  if (measWT !== null && !isNaN(measWT)) {
+    wtDev = Number(measWT) - t_min;
+    wtStatus = Number(measWT) >= t_min ? 'pass' : 'fail';
+  }
+
+  let ovalityDev = null;
+  let ovalityStatus = 'neutral';
+  if (measOvality !== null && !isNaN(measOvality)) {
+    ovalityDev = Number(measOvality) - maxAllowOvality;
+    ovalityStatus = Number(measOvality) <= maxAllowOvality ? 'pass' : 'fail';
+  }
+
+  let rippleDev = null;
+  let rippleStatus = 'neutral';
+  if (hasAnyInput && measRipple !== null && !isNaN(measRipple)) {
+    rippleDev = Number(measRipple) - maxAllowRipple;
+    rippleStatus = Number(measRipple) <= maxAllowRipple ? 'pass' : 'fail';
+  }
+
+  let overallStatus = 'neutral';
+  let verdictLabel = 'ÖLÇÜM GİRİŞİ BEKLENİYOR';
+  let summaryText = 'Saha büküm ölçümleri girildiğinde ASME B31.8 / B31.4 tolerans tahkiki otomatik gerçekleşecektir.';
+
+  if (hasAnyInput) {
+    if (angleStatus === 'fail' || wtStatus === 'fail' || ovalityStatus === 'fail' || rippleStatus === 'fail') {
+      overallStatus = 'fail';
+      verdictLabel = 'AS-BUILT RET (TOLERANS AŞIMI)';
+      const fails = [];
+      if (angleStatus === 'fail') fails.push(`Açı sapması (${angleDev >= 0 ? '+' : ''}${angleDev.toFixed(2)}° > ±0.50°)`);
+      if (wtStatus === 'fail') fails.push(`Cidar yetersiz (${Number(measWT).toFixed(2)} mm < ${t_min.toFixed(2)} mm)`);
+      if (ovalityStatus === 'fail') fails.push(`Ovallik aşımı (%${Number(measOvality).toFixed(2)} > %2.50)`);
+      if (rippleStatus === 'fail') fails.push(`Dalgalanma aşımı (${Number(measRipple).toFixed(1)} mm > ${maxAllowRipple.toFixed(1)} mm)`);
+      summaryText = `RET SEBEBİ: ${fails.join(', ')}. Boru montaja sevk edilemez.`;
+    } else if (angleStatus === 'warn') {
+      overallStatus = 'warn';
+      verdictLabel = 'ŞARTLI KABUL (İKAZ)';
+      summaryText = `Açı sapması (${angleDev >= 0 ? '+' : ''}${angleDev.toFixed(2)}°) ±0.20° montaj sınırını aşıyor fakat ±0.50° emniyet aralığında. Saha QC şefi ve hat mühendisi onayı gereklidir.`;
+    } else {
+      overallStatus = 'pass';
+      verdictLabel = 'AS-BUILT KABUL (ONAYLANDI)';
+      summaryText = 'Tüm saha fiziksel ölçümleri ASME B31.8, ASME B31.4 ve teknik şartname tolerans kriterlerini tam olarak sağlamaktadır.';
+    }
+  }
+
+  return {
+    hasData: hasAnyInput,
+    targetAngle,
+    t_min,
+    maxAllowOvality,
+    maxAllowRipple,
+    measAngle,
+    measWT,
+    measOvality,
+    measRipple,
+    angleDev,
+    angleStatus,
+    wtDev,
+    wtStatus,
+    ovalityDev,
+    ovalityStatus,
+    rippleDev,
+    rippleStatus,
+    overallStatus,
+    verdictLabel,
+    summaryText
+  };
+}
+
+function updateAsBuiltUI(calc) {
+  if (!calc) calc = runCalculations();
+  const evalRes = calculateAsBuiltEvaluation(calc);
+
+  // Targets in labels
+  if (dom.asBuiltTargetAngle) dom.asBuiltTargetAngle.textContent = `${evalRes.targetAngle.toFixed(2)}°`;
+  if (dom.asBuiltTargetWT) dom.asBuiltTargetWT.textContent = `${evalRes.t_min.toFixed(2)} mm`;
+  if (dom.asBuiltTargetOvality) dom.asBuiltTargetOvality.textContent = `≤ %${evalRes.maxAllowOvality.toFixed(2)}`;
+  if (dom.asBuiltTargetRipple) dom.asBuiltTargetRipple.textContent = `≤ ${evalRes.maxAllowRipple.toFixed(1)} mm (%1.0 D)`;
+
+  // Angle evaluation row
+  if (dom.asBuiltDevAngle) {
+    dom.asBuiltDevAngle.textContent = evalRes.angleDev !== null
+      ? `${evalRes.angleDev >= 0 ? '+' : ''}${evalRes.angleDev.toFixed(2)}°`
+      : '—';
+  }
+  if (dom.asBuiltStatusAngle) {
+    dom.asBuiltStatusAngle.className = `asbuilt-status-pill ${evalRes.angleStatus}`;
+    dom.asBuiltStatusAngle.textContent = evalRes.angleStatus === 'pass'
+      ? 'KABUL'
+      : evalRes.angleStatus === 'warn'
+        ? 'ŞARTLI'
+        : evalRes.angleStatus === 'fail'
+          ? 'RET'
+          : 'BEKLENİYOR';
+  }
+
+  // WT evaluation row
+  if (dom.asBuiltDevWT) {
+    dom.asBuiltDevWT.textContent = evalRes.wtDev !== null
+      ? `${evalRes.wtDev >= 0 ? '+' : ''}${evalRes.wtDev.toFixed(2)} mm`
+      : '—';
+  }
+  if (dom.asBuiltStatusWT) {
+    dom.asBuiltStatusWT.className = `asbuilt-status-pill ${evalRes.wtStatus}`;
+    dom.asBuiltStatusWT.textContent = evalRes.wtStatus === 'pass'
+      ? 'KABUL'
+      : evalRes.wtStatus === 'fail'
+        ? 'RET'
+        : 'BEKLENİYOR';
+  }
+
+  // Ovality evaluation row
+  if (dom.asBuiltDevOvality) {
+    dom.asBuiltDevOvality.textContent = evalRes.ovalityDev !== null
+      ? `${evalRes.ovalityDev >= 0 ? '+' : ''}%${evalRes.ovalityDev.toFixed(2)}`
+      : '—';
+  }
+  if (dom.asBuiltStatusOvality) {
+    dom.asBuiltStatusOvality.className = `asbuilt-status-pill ${evalRes.ovalityStatus}`;
+    dom.asBuiltStatusOvality.textContent = evalRes.ovalityStatus === 'pass'
+      ? 'KABUL'
+      : evalRes.ovalityStatus === 'fail'
+        ? 'RET'
+        : 'BEKLENİYOR';
+  }
+
+  // Ripple evaluation row
+  if (dom.asBuiltDevRipple) {
+    dom.asBuiltDevRipple.textContent = evalRes.rippleDev !== null
+      ? `${evalRes.rippleDev >= 0 ? '+' : ''}${evalRes.rippleDev.toFixed(1)} mm`
+      : '—';
+  }
+  if (dom.asBuiltStatusRipple) {
+    dom.asBuiltStatusRipple.className = `asbuilt-status-pill ${evalRes.rippleStatus}`;
+    dom.asBuiltStatusRipple.textContent = evalRes.rippleStatus === 'pass'
+      ? 'KABUL'
+      : evalRes.rippleStatus === 'fail'
+        ? 'RET'
+        : 'BEKLENİYOR';
+  }
+
+  // Overall Stamp & Summary
+  if (dom.badgeAsBuiltVerdict) {
+    dom.badgeAsBuiltVerdict.className = `asbuilt-verdict-badge ${evalRes.overallStatus}`;
+    dom.badgeAsBuiltVerdict.textContent = evalRes.verdictLabel;
+  }
+  if (dom.txtAsBuiltSummary) {
+    dom.txtAsBuiltSummary.textContent = evalRes.summaryText;
   }
 }
 
@@ -2826,7 +4017,16 @@ function updatePrintableCard(calc) {
     sidebend_left: 'Sidebend Sol (Yatay Büküm)',
     compound: 'Kombine (Düşey + Yatay 3D Büküm)'
   };
-  if (dom.prtBendType) dom.prtBendType.textContent = bendNames[state.bendType] || state.bendType;
+  if (dom.prtBendType) {
+    if (state.bendType === 'compound') {
+      const hStr = `${tr(state.compoundHoriAngle || 0)}° (${state.compoundHoriDir === 'right' ? 'Sağ' : 'Sol'})`;
+      const vStr = `${tr(state.compoundVertAngle || 0)}° (${state.compoundVertDir === 'overbend' ? 'Tepe' : 'Vadi'})`;
+      const rollStr = `${tr(state.compoundRollAngle || 0, 1)}°`;
+      dom.prtBendType.textContent = `3D Bileşik Büküm [Kalıp Roll: ${rollStr} | Yatay: ${hStr} | Düşey: ${vStr}]`;
+    } else {
+      dom.prtBendType.textContent = bendNames[state.bendType] || state.bendType;
+    }
+  }
 
   const clockCheck = validateClockSafety(state.bendType, state.clockPos, state.seamAngle);
   if (dom.prtClockPos) {
@@ -2867,6 +4067,12 @@ function updatePrintableCard(calc) {
   if (dom.prtArcLength) dom.prtArcLength.textContent = `${tr(calc.l_arc_m)} m (makine yayı: ${tr(calc.l_bent_m)} m)`;
   if (dom.prtSpringback) dom.prtSpringback.textContent = `${tr(calc.springbackDeg)}°`;
   if (dom.prtMachineAngle) dom.prtMachineAngle.textContent = `${tr(calc.machineAngleDeg)}°`;
+  if (dom.prtBendingForce) {
+    dom.prtBendingForce.textContent = `${tr(calc.plasticMomentKnm, 0)} kNm / ~${tr(calc.ramForceTon, 0)} Ton (${tr(calc.ramForceKn, 0)} kN)`;
+  }
+  if (dom.prtMachineClass) {
+    dom.prtMachineClass.textContent = `${calc.machineClass.modelName} (${calc.machineClass.isSufficient ? 'KAPASİTE DAHİLİ' : 'AŞIM'})`;
+  }
   
   // Section 3
   if (dom.prtThinning) dom.prtThinning.textContent = `${tr(calc.delta_t_thin)} mm (%${tr(calc.thinningPercent)})`;
@@ -2934,6 +4140,86 @@ function updatePrintableCard(calc) {
       }
       prtBody.appendChild(trow);
     });
+  }
+
+  // Section 6: Site As-Built Verification & QC Stamp Table
+  const asBuiltEval = calculateAsBuiltEvaluation(calc);
+  if (dom.prtAsBuiltTargetAngle) dom.prtAsBuiltTargetAngle.textContent = `${tr(asBuiltEval.targetAngle)}°`;
+  if (dom.prtAsBuiltMeasAngle) {
+    dom.prtAsBuiltMeasAngle.textContent = asBuiltEval.measAngle !== null ? `${tr(asBuiltEval.measAngle)}°` : '—';
+  }
+  if (dom.prtAsBuiltDevAngle) {
+    dom.prtAsBuiltDevAngle.textContent = asBuiltEval.angleDev !== null ? `${asBuiltEval.angleDev >= 0 ? '+' : ''}${tr(asBuiltEval.angleDev)}°` : '—';
+  }
+  if (dom.prtAsBuiltStatusAngle) {
+    dom.prtAsBuiltStatusAngle.innerHTML = asBuiltEval.angleStatus === 'pass'
+      ? '<strong style="color:#15803d;">KABUL</strong>'
+      : asBuiltEval.angleStatus === 'warn'
+        ? '<strong style="color:#b45309;">ŞARTLI</strong>'
+        : asBuiltEval.angleStatus === 'fail'
+          ? '<strong style="color:#b91c1c;">RET</strong>'
+          : '<strong>BEKLENİYOR</strong>';
+  }
+
+  if (dom.prtAsBuiltTargetWT) dom.prtAsBuiltTargetWT.textContent = `t_min: ${tr(asBuiltEval.t_min)} mm`;
+  if (dom.prtAsBuiltMeasWT) {
+    dom.prtAsBuiltMeasWT.textContent = asBuiltEval.measWT !== null ? `${tr(asBuiltEval.measWT)} mm` : '—';
+  }
+  if (dom.prtAsBuiltDevWT) {
+    dom.prtAsBuiltDevWT.textContent = asBuiltEval.wtDev !== null ? `${asBuiltEval.wtDev >= 0 ? '+' : ''}${tr(asBuiltEval.wtDev)} mm` : '—';
+  }
+  if (dom.prtAsBuiltStatusWT) {
+    dom.prtAsBuiltStatusWT.innerHTML = asBuiltEval.wtStatus === 'pass'
+      ? '<strong style="color:#15803d;">KABUL</strong>'
+      : asBuiltEval.wtStatus === 'fail'
+        ? '<strong style="color:#b91c1c;">RET</strong>'
+        : '<strong>BEKLENİYOR</strong>';
+  }
+
+  if (dom.prtAsBuiltMeasOvality) {
+    dom.prtAsBuiltMeasOvality.textContent = asBuiltEval.measOvality !== null ? `%${tr(asBuiltEval.measOvality)}` : '—';
+  }
+  if (dom.prtAsBuiltDevOvality) {
+    dom.prtAsBuiltDevOvality.textContent = asBuiltEval.ovalityDev !== null ? `${asBuiltEval.ovalityDev >= 0 ? '+' : ''}%${tr(asBuiltEval.ovalityDev)}` : '—';
+  }
+  if (dom.prtAsBuiltStatusOvality) {
+    dom.prtAsBuiltStatusOvality.innerHTML = asBuiltEval.ovalityStatus === 'pass'
+      ? '<strong style="color:#15803d;">KABUL</strong>'
+      : asBuiltEval.ovalityStatus === 'fail'
+        ? '<strong style="color:#b91c1c;">RET</strong>'
+        : '<strong>BEKLENİYOR</strong>';
+  }
+
+  if (dom.prtAsBuiltTargetRipple) dom.prtAsBuiltTargetRipple.textContent = `≤ ${tr(asBuiltEval.maxAllowRipple, 1)} mm (%1,0 D)`;
+  if (dom.prtAsBuiltMeasRipple) {
+    dom.prtAsBuiltMeasRipple.textContent = asBuiltEval.measRipple !== null ? `${tr(asBuiltEval.measRipple, 1)} mm` : '—';
+  }
+  if (dom.prtAsBuiltDevRipple) {
+    dom.prtAsBuiltDevRipple.textContent = asBuiltEval.rippleDev !== null ? `${asBuiltEval.rippleDev >= 0 ? '+' : ''}${tr(asBuiltEval.rippleDev, 1)} mm` : '—';
+  }
+  if (dom.prtAsBuiltStatusRipple) {
+    dom.prtAsBuiltStatusRipple.innerHTML = asBuiltEval.rippleStatus === 'pass'
+      ? '<strong style="color:#15803d;">KABUL</strong>'
+      : asBuiltEval.rippleStatus === 'fail'
+        ? '<strong style="color:#b91c1c;">RET</strong>'
+        : '<strong>BEKLENİYOR</strong>';
+  }
+
+  if (dom.prtAsBuiltMeta) {
+    const metaSpool = state.asBuilt.spoolNo || state.pipeNo || '—';
+    const metaInsp = state.asBuilt.inspector || 'İmza Bekleniyor';
+    const metaDate = state.asBuilt.date || dateStr;
+    dom.prtAsBuiltMeta.textContent = `${metaSpool} / ${metaInsp} / ${metaDate}`;
+  }
+  if (dom.prtAsBuiltFinalVerdict) {
+    dom.prtAsBuiltFinalVerdict.textContent = asBuiltEval.verdictLabel;
+    dom.prtAsBuiltFinalVerdict.style.color = asBuiltEval.overallStatus === 'pass'
+      ? '#15803d'
+      : asBuiltEval.overallStatus === 'warn'
+        ? '#b45309'
+        : asBuiltEval.overallStatus === 'fail'
+          ? '#b91c1c'
+          : '#475569';
   }
 }
 
@@ -3058,6 +4344,11 @@ function restoreState() {
   state.clockPos = oneOf(data.clockPos, ['3', '9', '12', '6', 'custom'], state.clockPos);
   state.seamAngle = num(data.seamAngle, state.seamAngle, -180, 180);
   state.bendType = oneOf(data.bendType, ['overbend', 'sagbend', 'sidebend_right', 'sidebend_left', 'compound'], state.bendType);
+  state.compoundHoriAngle = num(data.compoundHoriAngle, state.compoundHoriAngle, 0, 90);
+  state.compoundVertAngle = num(data.compoundVertAngle, state.compoundVertAngle, 0, 90);
+  state.compoundHoriDir = oneOf(data.compoundHoriDir, ['right', 'left'], state.compoundHoriDir);
+  state.compoundVertDir = oneOf(data.compoundVertDir, ['overbend', 'sagbend'], state.compoundVertDir);
+  state.compoundRollAngle = num(data.compoundRollAngle, state.compoundRollAngle, 0, 90);
   state.targetAngle = num(data.targetAngle, state.targetAngle, 0.5, 90);
   state.radiusMultiplier = num(data.radiusMultiplier, state.radiusMultiplier, 5, 100);
   state.designPressure = num(data.designPressure, state.designPressure, 1, 250);
@@ -3175,6 +4466,19 @@ function restoreState() {
     const hasPreset = savedPreset && [...dom.selPreset.options].some(o => o.value === savedPreset);
     dom.selPreset.value = hasPreset ? savedPreset : 'custom';
   }
+
+  // Restore As-Built Field QC Measurements
+  if (data.asBuilt && typeof data.asBuilt === 'object') {
+    state.asBuilt = { ...state.asBuilt, ...data.asBuilt };
+    setVal(dom.inpAsBuiltSpool, state.asBuilt.spoolNo || '');
+    setVal(dom.inpAsBuiltDate, state.asBuilt.date || '');
+    setVal(dom.inpAsBuiltAngle, state.asBuilt.measuredAngle !== null ? state.asBuilt.measuredAngle : '');
+    setVal(dom.inpAsBuiltWT, state.asBuilt.measuredWT !== null ? state.asBuilt.measuredWT : '');
+    setVal(dom.inpAsBuiltOvality, state.asBuilt.measuredOvality !== null ? state.asBuilt.measuredOvality : '');
+    setVal(dom.inpAsBuiltRipple, state.asBuilt.measuredRipple !== null ? state.asBuilt.measuredRipple : '0.0');
+    setVal(dom.inpAsBuiltInspector, state.asBuilt.inspector || '');
+  }
+
   syncRadiusOptions();
 }
 
@@ -3289,6 +4593,121 @@ function applyCalculatedSlope() {
   closeSlopeModal();
 }
 
+/* ==========================================================================
+   3D Compound Bend & Roll Angle Calculation Engine
+   True 3D Spatial Curvature: cos(theta_3D) = cos(theta_H) * cos(theta_V)
+   Machine Roll Angle: tan(psi) = tan(V) / sin(H)
+   ========================================================================== */
+
+const compoundCalcState = {
+  horiAngle: 8.0,
+  horiDir: 'right',
+  vertAngle: 6.0,
+  vertDir: 'overbend',
+  resultAngle: 9.99,
+  rollAngle: 36.9,
+  bendType: 'compound'
+};
+
+function calculateCompoundBend() {
+  const hDeg = clampNum(dom.inpHoriAngle ? dom.inpHoriAngle.value : 0, 0, 85, 0);
+  const vDeg = clampNum(dom.inpVertAngle ? dom.inpVertAngle.value : 0, 0, 85, 0);
+  const hDir = dom.selHoriDir ? dom.selHoriDir.value : 'right';
+  const vDir = dom.selVertDir ? dom.selVertDir.value : 'overbend';
+
+  const hRad = (hDeg * Math.PI) / 180;
+  const vRad = (vDeg * Math.PI) / 180;
+
+  // True 3D spatial compound bend angle: cos(theta_3D) = cos(theta_H) * cos(theta_V)
+  const cos3D = Math.max(-1, Math.min(1, Math.cos(hRad) * Math.cos(vRad)));
+  const theta3dRad = Math.acos(cos3D);
+  const theta3dDeg = (theta3dRad * 180) / Math.PI;
+
+  // Roll Angle psi (rotation of pipe bending plane from horizontal):
+  // tan(psi) = tan(V) / sin(H)
+  let rollDeg = 0;
+  if (hDeg < 1e-6 && vDeg < 1e-6) {
+    rollDeg = 0;
+  } else if (hDeg < 1e-6) {
+    rollDeg = 90.0;
+  } else if (vDeg < 1e-6) {
+    rollDeg = 0.0;
+  } else {
+    const tanV = Math.tan(vRad);
+    const sinH = Math.sin(hRad);
+    rollDeg = (Math.atan2(tanV, sinH) * 180) / Math.PI;
+  }
+
+  compoundCalcState.horiAngle = hDeg;
+  compoundCalcState.vertAngle = vDeg;
+  compoundCalcState.horiDir = hDir;
+  compoundCalcState.vertDir = vDir;
+  compoundCalcState.resultAngle = theta3dDeg;
+  compoundCalcState.rollAngle = rollDeg;
+
+  // Dominant bend type determination
+  let bendTypeDesc = 'compound';
+  if (hDeg < 0.2 && vDeg > 0.2) {
+    bendTypeDesc = vDir;
+  } else if (vDeg < 0.2 && hDeg > 0.2) {
+    bendTypeDesc = hDir === 'right' ? 'sidebend_right' : 'sidebend_left';
+  } else {
+    bendTypeDesc = 'compound';
+  }
+  compoundCalcState.bendType = bendTypeDesc;
+
+  // Update UI outputs
+  if (dom.valCompound3DAngle) dom.valCompound3DAngle.textContent = `${theta3dDeg.toFixed(2)}°`;
+  if (dom.valCompoundRollAngle) dom.valCompoundRollAngle.textContent = `${rollDeg.toFixed(1)}°`;
+  if (dom.badgeCompoundType) {
+    const hTxt = hDir === 'right' ? 'Sağ' : 'Sol';
+    const vTxt = vDir === 'overbend' ? 'Tepe (Overbend)' : 'Vadi (Sagbend)';
+    dom.badgeCompoundType.textContent = (hDeg > 0.1 && vDeg > 0.1)
+      ? `3D KOMBİNE (${hTxt} + ${vTxt})`
+      : (hDeg > 0.1 ? `YATAY BÜKÜM (${hTxt})` : `DÜŞEY BÜKÜM (${vTxt})`);
+  }
+  if (dom.descCompoundResult) {
+    dom.descCompoundResult.textContent = `Yatay: ${hDeg.toFixed(2)}° (${hDir === 'right' ? 'Sağa' : 'Sola'}), Düşey: ${vDeg.toFixed(2)}° (${vDir === 'overbend' ? 'Tepeye' : 'Vadiye'}). Boru ekseni büküm presinde yataydan ${rollDeg.toFixed(1)}° döndürülerek ${theta3dDeg.toFixed(2)}° bileşke açıda tek seferde bükülmelidir.`;
+  }
+}
+
+function openCompoundModal() {
+  if (!dom.compoundModal) return;
+  if (state.compoundHoriAngle || state.compoundVertAngle) {
+    if (dom.inpHoriAngle) dom.inpHoriAngle.value = state.compoundHoriAngle;
+    if (dom.inpVertAngle) dom.inpVertAngle.value = state.compoundVertAngle;
+    if (dom.selHoriDir) dom.selHoriDir.value = state.compoundHoriDir;
+    if (dom.selVertDir) dom.selVertDir.value = state.compoundVertDir;
+  }
+  dom.compoundModal.hidden = false;
+  calculateCompoundBend();
+}
+
+function closeCompoundModal() {
+  if (!dom.compoundModal) return;
+  dom.compoundModal.hidden = true;
+}
+
+function applyCompoundBend() {
+  const angle = parseFloat(compoundCalcState.resultAngle.toFixed(2));
+  if (angle > 0.05) {
+    state.targetAngle = angle;
+    state.bendType = compoundCalcState.bendType;
+    state.compoundHoriAngle = compoundCalcState.horiAngle;
+    state.compoundVertAngle = compoundCalcState.vertAngle;
+    state.compoundHoriDir = compoundCalcState.horiDir;
+    state.compoundVertDir = compoundCalcState.vertDir;
+    state.compoundRollAngle = compoundCalcState.rollAngle;
+
+    if (dom.inpTargetAngle) dom.inpTargetAngle.value = state.targetAngle;
+    if (dom.rngTargetAngle) dom.rngTargetAngle.value = Math.min(45, state.targetAngle);
+    if (dom.selBendType) dom.selBendType.value = state.bendType;
+
+    updateUI();
+  }
+  closeCompoundModal();
+}
+
 function setupEventListeners() {
   // Preset Selector
   dom.selPreset.addEventListener('change', (e) => {
@@ -3379,6 +4798,9 @@ function setupEventListeners() {
   if (dom.selBendType) {
     dom.selBendType.addEventListener('change', (e) => {
       state.bendType = e.target.value;
+      if (state.bendType === 'compound') {
+        openCompoundModal();
+      }
       updateUI();
     });
   }
@@ -3645,14 +5067,28 @@ function setupEventListeners() {
       exportPullsToJSON(calc);
     });
   }
+  if (dom.btnExportDXF) {
+    dom.btnExportDXF.addEventListener('click', () => {
+      const calc = runCalculations();
+      export2DToDXF(calc);
+    });
+  }
+  if (dom.btnExportSVG) {
+    dom.btnExportSVG.addEventListener('click', () => {
+      export2DToSVG();
+    });
+  }
 
-  // Tab Switching (2D vs 3D)
+  // Tab Switching (2D vs As-Built vs 3D)
   dom.tab2D.addEventListener('click', () => {
     dom.tab2D.classList.add('active');
+    dom.tabAsBuilt.classList.remove('active');
     dom.tab3D.classList.remove('active');
     dom.tab2D.setAttribute('aria-selected', 'true');
+    dom.tabAsBuilt.setAttribute('aria-selected', 'false');
     dom.tab3D.setAttribute('aria-selected', 'false');
     dom.view2D.classList.add('active');
+    dom.viewAsBuilt.classList.remove('active');
     dom.view3D.classList.remove('active');
     if (dom.visInfoLabel) dom.visInfoLabel.textContent = 'Şematik Vektör Analizi • Canlı Güncelleme';
     if (dom.btnResetView) dom.btnResetView.style.display = '';
@@ -3660,13 +5096,32 @@ function setupEventListeners() {
     render2DSketch(runCalculations());
   });
 
+  dom.tabAsBuilt.addEventListener('click', () => {
+    dom.tabAsBuilt.classList.add('active');
+    dom.tab2D.classList.remove('active');
+    dom.tab3D.classList.remove('active');
+    dom.tabAsBuilt.setAttribute('aria-selected', 'true');
+    dom.tab2D.setAttribute('aria-selected', 'false');
+    dom.tab3D.setAttribute('aria-selected', 'false');
+    dom.viewAsBuilt.classList.add('active');
+    dom.view2D.classList.remove('active');
+    dom.view3D.classList.remove('active');
+    if (dom.visInfoLabel) dom.visInfoLabel.textContent = '📋 Şantiye As-Built Ölçüm & QC Kabul Paneli';
+    if (dom.btnResetView) dom.btnResetView.style.display = 'none';
+    stopBendAnimation(false);
+    updateAsBuiltUI(runCalculations());
+  });
+
   dom.tab3D.addEventListener('click', () => {
     dom.tab3D.classList.add('active');
     dom.tab2D.classList.remove('active');
+    dom.tabAsBuilt.classList.remove('active');
     dom.tab3D.setAttribute('aria-selected', 'true');
     dom.tab2D.setAttribute('aria-selected', 'false');
+    dom.tabAsBuilt.setAttribute('aria-selected', 'false');
     dom.view3D.classList.add('active');
     dom.view2D.classList.remove('active');
+    dom.viewAsBuilt.classList.remove('active');
     init3DScene();
     update3DPipe(runCalculations());
     if (dom.visInfoLabel) dom.visInfoLabel.textContent = '3D WebGL Modeli • Canlı Güncelleme';
@@ -3676,6 +5131,71 @@ function setupEventListeners() {
       controls3D.update();
     }
     frameCameraToPipe();
+  });
+
+  // As-Built Site QC Action Buttons
+  if (dom.btnSyncAsBuiltCalc) {
+    dom.btnSyncAsBuiltCalc.addEventListener('click', () => {
+      const calc = runCalculations();
+      state.asBuilt.measuredAngle = Number(state.targetAngle.toFixed(2));
+      state.asBuilt.measuredWT = Number(calc.t_extrados.toFixed(2));
+      state.asBuilt.measuredOvality = Number(calc.estimatedOvality.toFixed(2));
+      state.asBuilt.measuredRipple = Number(calc.estimatedRippleMm.toFixed(1));
+      if (!state.asBuilt.spoolNo || state.asBuilt.spoolNo === 'SP-01 / B-104') {
+        state.asBuilt.spoolNo = state.pipeNo ? `${state.pipeNo} / Spool-01` : 'SP-01 / B-104';
+      }
+      if (dom.inpAsBuiltAngle) dom.inpAsBuiltAngle.value = state.asBuilt.measuredAngle;
+      if (dom.inpAsBuiltWT) dom.inpAsBuiltWT.value = state.asBuilt.measuredWT;
+      if (dom.inpAsBuiltOvality) dom.inpAsBuiltOvality.value = state.asBuilt.measuredOvality;
+      if (dom.inpAsBuiltRipple) dom.inpAsBuiltRipple.value = state.asBuilt.measuredRipple;
+      if (dom.inpAsBuiltSpool) dom.inpAsBuiltSpool.value = state.asBuilt.spoolNo;
+      updateAsBuiltUI(calc);
+      updatePrintableCard(calc);
+      scheduleSave();
+    });
+  }
+
+  if (dom.btnClearAsBuilt) {
+    dom.btnClearAsBuilt.addEventListener('click', () => {
+      state.asBuilt.measuredAngle = null;
+      state.asBuilt.measuredWT = null;
+      state.asBuilt.measuredOvality = null;
+      state.asBuilt.measuredRipple = 0.0;
+      if (dom.inpAsBuiltAngle) dom.inpAsBuiltAngle.value = '';
+      if (dom.inpAsBuiltWT) dom.inpAsBuiltWT.value = '';
+      if (dom.inpAsBuiltOvality) dom.inpAsBuiltOvality.value = '';
+      if (dom.inpAsBuiltRipple) dom.inpAsBuiltRipple.value = '0.0';
+      const calc = runCalculations();
+      updateAsBuiltUI(calc);
+      updatePrintableCard(calc);
+      scheduleSave();
+    });
+  }
+
+  const asBuiltInputs = [
+    { el: dom.inpAsBuiltAngle, key: 'measuredAngle', isNum: true },
+    { el: dom.inpAsBuiltWT, key: 'measuredWT', isNum: true },
+    { el: dom.inpAsBuiltOvality, key: 'measuredOvality', isNum: true },
+    { el: dom.inpAsBuiltRipple, key: 'measuredRipple', isNum: true },
+    { el: dom.inpAsBuiltSpool, key: 'spoolNo', isNum: false },
+    { el: dom.inpAsBuiltInspector, key: 'inspector', isNum: false },
+    { el: dom.inpAsBuiltDate, key: 'date', isNum: false }
+  ];
+
+  asBuiltInputs.forEach(({ el, key, isNum }) => {
+    if (!el) return;
+    el.addEventListener('input', () => {
+      const val = el.value.trim();
+      if (isNum) {
+        state.asBuilt[key] = val === '' ? null : parseFloat(val);
+      } else {
+        state.asBuilt[key] = val;
+      }
+      const calc = runCalculations();
+      updateAsBuiltUI(calc);
+      updatePrintableCard(calc);
+      scheduleSave();
+    });
   });
 
   // View reset & toggle labels
@@ -3743,14 +5263,72 @@ function setupEventListeners() {
       const calc = runCalculations();
       bendAnim.total = calc.numPulls;
       ensureMachine();
-      if (!machineGroup3D) return;
+      if (!state.isTreeBendMode && !machineGroup3D) return;
+      if (state.isTreeBendMode && !treeBendGroup3D) return;
       bendAnim.active = true;
       if (bendAnim.step >= calc.numPulls) bendAnim.step = 0;
       renderAnimStep(bendAnim.step + 1);
-      setRamPressed(false);
+      if (!state.isTreeBendMode) setRamPressed(false);
       syncAnimUI();
     });
   }
+
+  // Easter Egg: Exit Tree Bend Mode Button
+  if (dom.btnExitTreeMode) {
+    dom.btnExitTreeMode.addEventListener('click', () => {
+      exitTreeBendMode();
+    });
+  }
+
+  // Easter Egg Secret Code Key Listener (typing 'agac' or 'tree' in 3D tab)
+  window.addEventListener('keydown', (e) => {
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) {
+      return;
+    }
+    if (e.key === 'Escape') {
+      const activeTrigger = document.querySelector('.info-trigger.active');
+      if (activeTrigger) activeTrigger.classList.remove('active');
+      if (state.isTreeBendMode) {
+        exitTreeBendMode();
+      }
+      return;
+    }
+    if (!dom.view3D || !dom.view3D.classList.contains('active')) return;
+    secretKeyBuffer = (secretKeyBuffer + e.key.toLowerCase()).slice(-10);
+    if (secretKeyBuffer.endsWith('agac') || secretKeyBuffer.endsWith('tree')) {
+      secretKeyBuffer = '';
+      enterTreeBendMode();
+    }
+  });
+
+  // Calculation Info Popovers (Click / Touch toggle, inside-popover protect & Outside/ESC dismissal)
+  document.addEventListener('click', (e) => {
+    // If click or selection is inside an open popover card, keep it open (allow text selection / copying)
+    if (e.target.closest && e.target.closest('.info-popover')) {
+      return;
+    }
+    const trigger = e.target.closest ? e.target.closest('.info-trigger') : null;
+    const allActive = document.querySelectorAll('.info-trigger.active');
+    allActive.forEach((t) => {
+      if (t !== trigger) t.classList.remove('active');
+    });
+    if (trigger) {
+      trigger.classList.toggle('active');
+    }
+  });
+
+  // Keyboard accessibility for info triggers (Enter or Space to toggle)
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      const trigger = e.target && e.target.closest ? e.target.closest('.info-trigger') : null;
+      if (trigger && (!e.target.closest || !e.target.closest('.info-popover'))) {
+        e.preventDefault();
+        const wasActive = trigger.classList.contains('active');
+        document.querySelectorAll('.info-trigger.active').forEach((t) => t.classList.remove('active'));
+        if (!wasActive) trigger.classList.add('active');
+      }
+    }
+  });
 
   // Reset to Defaults
   dom.btnResetDefaults.addEventListener('click', () => {
@@ -3834,6 +5412,31 @@ function setupEventListeners() {
     dom.btnApplyCalculatedSlope.addEventListener('click', applyCalculatedSlope);
   }
 
+  // 3D Compound Bend Calculator Modal wiring
+  if (dom.btnOpenCompoundCalc) {
+    dom.btnOpenCompoundCalc.addEventListener('click', openCompoundModal);
+  }
+  if (dom.btnCloseCompoundModal) {
+    dom.btnCloseCompoundModal.addEventListener('click', closeCompoundModal);
+  }
+  if (dom.btnCloseCompoundModalX) {
+    dom.btnCloseCompoundModalX.addEventListener('click', closeCompoundModal);
+  }
+  if (dom.compoundModal) {
+    dom.compoundModal.addEventListener('click', (e) => {
+      if (e.target === dom.compoundModal) closeCompoundModal();
+    });
+  }
+  [dom.inpHoriAngle, dom.selHoriDir, dom.inpVertAngle, dom.selVertDir].forEach((inputEl) => {
+    if (inputEl) {
+      inputEl.addEventListener('input', calculateCompoundBend);
+      inputEl.addEventListener('change', calculateCompoundBend);
+    }
+  });
+  if (dom.btnApplyCompoundBend) {
+    dom.btnApplyCompoundBend.addEventListener('click', applyCompoundBend);
+  }
+
   // Update Manager wiring
   if (dom.btnCheckUpdates) {
     dom.btnCheckUpdates.addEventListener('click', () => checkForUpdates(true));
@@ -3850,6 +5453,7 @@ function setupEventListeners() {
     if (e.key === 'Escape') {
       if (dom.updateModal && !dom.updateModal.hidden) closeUpdateModal();
       if (dom.slopeModal && !dom.slopeModal.hidden) closeSlopeModal();
+      if (dom.compoundModal && !dom.compoundModal.hidden) closeCompoundModal();
       if (selectedPullIndex !== null) selectPull(null);
       return;
     }

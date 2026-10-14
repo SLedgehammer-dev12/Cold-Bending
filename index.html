@@ -255,6 +255,9 @@
           <option value="sidebend_left">Sidebend Sol (Yatay Sol Büküm)</option>
           <option value="compound">Kombine (Düşey + Yatay 3D Büküm)</option>
         </select>
+        <div id="compoundActiveInfo" class="field-helper" style="display: none; margin-top: 5px; font-weight: 600; font-size: 0.8rem; color: var(--accent-cyan, #06b6d4);">
+          <span id="txtCompoundActiveInfo"></span>
+        </div>
       </div>
 
       <!-- Target Field Deflection Angle (Theta) -->
@@ -262,7 +265,8 @@
         <div class="field-header-with-badge">
           <label for="inpTargetAngle" class="field-label">Hedef Güzergah Büküm Açısı (θ<sub>target</sub>)</label>
           <div class="field-header-actions">
-            <button type="button" class="btn-xs-link" id="btnOpenSlopeCalc" title="Harita kot veya eğim farkından büküm açısı hesapla">📐 Kot/Eğimden Hesapla</button>
+            <button type="button" class="btn-xs-link" id="btnOpenSlopeCalc" title="Harita kot veya eğim farkından büküm açısı hesapla">📐 Kot/Eğim</button>
+            <button type="button" class="btn-xs-link" id="btnOpenCompoundCalc" title="Yatay ve düşey açı bileşkesinden 3D büküm ve roll açısı hesapla">🌐 3D Bileşik</button>
             <span class="badge-mini" id="badgeMaxAngleInfo">Max: ~13.4°</span>
           </div>
         </div>
@@ -437,10 +441,23 @@
       </div>
 
       <!-- KEY ENGINEERING KPI METRICS BAR -->
+      <!-- KEY ENGINEERING KPI METRICS BAR -->
       <div class="kpi-grid">
         <div class="kpi-card" id="cardMinRadius">
           <div class="kpi-header">
-            <span class="kpi-title">Min İzin Verilen Yarıçap (R<sub>min</sub>)</span>
+            <span class="kpi-title">
+              Min İzin Verilen Yarıçap (R<sub>min</sub>)
+              <span class="info-trigger" tabindex="0" role="button" aria-label="Min Yarıçap Formülü ve Standart Notu">
+                <svg class="info-icon" viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+                <div class="info-popover">
+                  <div class="popover-badge">ASME B31.8 Tablo 841.2.3-1</div>
+                  <div class="popover-title">Asgari Büküm Yarıçapı (R<sub>min</sub>)</div>
+                  <div class="popover-formula">R<sub>min</sub> = k<sub>R</sub> · D<sub>o</sub></div>
+                  <div class="popover-desc">Çapa göre katsayı: ≤12" için 18D, 14"-18" için 24D, 20"-24" için 30D, ≥26" için 40D. İşveren şartnamesi (örn. 40D/50D) varsa daha sıkı olan uygulanır.</div>
+                  <div class="popover-limit"><strong>Kabul Kriteri:</strong> R<sub>hesap</sub> ≥ R<sub>min</sub></div>
+                </div>
+              </span>
+            </span>
             <span class="status-indicator pass" id="kpiBadgeRmin">UYGUN</span>
           </div>
           <div class="kpi-value" id="kpiValRmin">36.58 m <span class="kpi-sub">(40 D)</span></div>
@@ -449,7 +466,19 @@
 
         <div class="kpi-card" id="cardMaxAngle">
           <div class="kpi-header">
-            <span class="kpi-title">Maks İzin Verilen Açı (θ<sub>max</sub>)</span>
+            <span class="kpi-title">
+              Maks İzin Verilen Açı (θ<sub>max</sub>)
+              <span class="info-trigger" tabindex="0" role="button" aria-label="Maks Açı Formülü ve Geometrik Sınır">
+                <svg class="info-icon" viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+                <div class="info-popover">
+                  <div class="popover-badge">Geometrik Kavis Limiti</div>
+                  <div class="popover-title">Azami Büküm Açısı (θ<sub>max</sub>)</div>
+                  <div class="popover-formula">θ<sub>max</sub> = (L<sub>arc</sub> / R<sub>min</sub>) · (180 / π)</div>
+                  <div class="popover-desc">Verilen boru boyunda düz teğet uzunlukları (L<sub>t1</sub>, L<sub>t2</sub>) ayrıldıktan sonra kalan büküm yayında (L<sub>arc</sub> = L - L<sub>t1</sub> - L<sub>t2</sub>) R<sub>min</sub> şartını koruyarak verilebilecek en büyük açıdır.</div>
+                  <div class="popover-limit"><strong>Kabul Kriteri:</strong> θ<sub>hedef</sub> ≤ θ<sub>max</sub></div>
+                </div>
+              </span>
+            </span>
             <span class="status-indicator pass" id="kpiBadgeTheta">KAPASİTE DAHİLİ</span>
           </div>
           <div class="kpi-value" id="kpiValThetaMax">13.16°</div>
@@ -458,7 +487,19 @@
 
         <div class="kpi-card" id="cardThinning">
           <div class="kpi-header">
-            <span class="kpi-title">Dış Cidar İncelmesi (Δt<sub>thin</sub>)</span>
+            <span class="kpi-title">
+              Dış Cidar İncelmesi (Δt<sub>thin</sub>)
+              <span class="info-trigger" tabindex="0" role="button" aria-label="Cidar İncelmesi Formülü ve Barlow Emniyeti">
+                <svg class="info-icon" viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+                <div class="info-popover">
+                  <div class="popover-badge">ASME B31.8 / Barlow Formülü</div>
+                  <div class="popover-title">Extrados Cidar İncelmesi</div>
+                  <div class="popover-formula">Δt<sub>thin</sub> = t<sub>nom</sub> · D<sub>o</sub> / (2R + D<sub>o</sub>)</div>
+                  <div class="popover-desc">Bükümün dış kavisinde çekme gerilmesi nedeniyle oluşan cidar kalınlığı kaybıdır. Kalan et kalınlığı tasarım iç basınç sınırını (Barlow) karşılamalıdır.</div>
+                  <div class="popover-limit"><strong>Kabul Kriteri:</strong> t<sub>extrados</sub> ≥ t<sub>min,design</sub> = (P·D)/(2·S·F·E·T)</div>
+                </div>
+              </span>
+            </span>
             <span class="status-indicator pass" id="kpiBadgeThin">GÜVENLİ</span>
           </div>
           <div class="kpi-value" id="kpiValThinning">0.18 mm <span class="kpi-sub">(%1.24)</span></div>
@@ -467,7 +508,19 @@
 
         <div class="kpi-card" id="cardOvality">
           <div class="kpi-header">
-            <span class="kpi-title">Tahmini Ovalleşme (Ovalite)</span>
+            <span class="kpi-title">
+              Tahmini Ovalleşme (Ovalite)
+              <span class="info-trigger" tabindex="0" role="button" aria-label="Ovalleşme Formülü ve Pig Geçiş Kriteri">
+                <svg class="info-icon" viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+                <div class="info-popover">
+                  <div class="popover-badge">ASME B31.8 Md. 841.2.3-a-6</div>
+                  <div class="popover-title">Boru Kesiti Ovalleşme Tahkiki</div>
+                  <div class="popover-formula">Ovalite (%) = (D<sub>max</sub> - D<sub>min</sub>) / D<sub>nom</sub> · 100</div>
+                  <div class="popover-desc">Büküm esnasında dairesel kesitin elipsleşme oranıdır. Mandrelsiz bükümde ~0.125·D<sub>o</sub>²/(R·t<sub>nom</sub>) yaklaşımı kullanılır. D/t > 50 ise iç mandrel desteği gereklidir.</div>
+                  <div class="popover-limit"><strong>Kabul Kriteri:</strong> Ovalite ≤ %2.50 (Akıllı pig serbest geçişi)</div>
+                </div>
+              </span>
+            </span>
             <span class="status-indicator pass" id="kpiBadgeOvality">ILI UYGUN (≤ %2.5)</span>
           </div>
           <div class="kpi-value" id="kpiValOvality">%0.95</div>
@@ -476,7 +529,19 @@
 
         <div class="kpi-card highlight-kpi" id="cardSpringback">
           <div class="kpi-header">
-            <span class="kpi-title">Geri Yaylanma & Makine Ayar Açısı</span>
+            <span class="kpi-title">
+              Geri Yaylanma & Makine Ayar Açısı
+              <span class="info-trigger" tabindex="0" role="button" aria-label="Geri Yaylanma Formülü ve Makine Ayarı">
+                <svg class="info-icon" viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+                <div class="info-popover">
+                  <div class="popover-badge">Elastoplastik Çelik Teorisi</div>
+                  <div class="popover-title">Elastik Geri Yaylanma (Springback)</div>
+                  <div class="popover-formula">Δθ<sub>sb</sub> = θ<sub>hedef</sub> · (3 · SMYS · R) / (E · t<sub>nom</sub>)</div>
+                  <div class="popover-desc">Pres kuvveti kaldırıldığında çeliğin elastik gerilmesi nedeniyle borunun geriye açılma miktarıdır. İstenen net açıya ulaşmak için makineye θ<sub>makine</sub> = θ<sub>hedef</sub> + Δθ<sub>sb</sub> açısı verilir.</div>
+                  <div class="popover-limit"><strong>Hesap Parametreleri:</strong> E = 207,000 MPa, SMYS = Akma Sınırı</div>
+                </div>
+              </span>
+            </span>
             <span class="status-badge-blue">MAKİNE AYARI</span>
           </div>
           <div class="kpi-value" id="kpiValMachineAngle">10.82°</div>
@@ -492,6 +557,10 @@
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
               2D Dinamik Mühendislik Çizimi (Sketch)
             </button>
+            <button class="vis-tab" id="tabAsBuilt" data-tab="viewAsBuilt" role="tab" aria-selected="false" aria-controls="viewAsBuilt">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              📋 Şantiye As-Built & QC Kabulü
+            </button>
             <button class="vis-tab" id="tab3D" data-tab="view3D" role="tab" aria-selected="false" aria-controls="view3D">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
               3D İnteraktif WebGL Boru Modeli (3D Sketch)
@@ -499,6 +568,14 @@
           </div>
           <div class="vis-toolbar">
             <span class="toolbar-info" id="visInfoLabel">Şematik Vektör Analizi • Canlı Güncelleme</span>
+            <button class="btn btn-sm btn-outline btn-export" id="btnExportDXF" title="AutoCAD uyumlu 1:1 ölçekli 2D CAD (DXF) indir">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span>AutoCAD DXF</span>
+            </button>
+            <button class="btn btn-sm btn-outline btn-export" id="btnExportSVG" title="Vektörel SVG çizimi indir">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span>SVG</span>
+            </button>
             <button class="btn btn-sm btn-outline" id="btnResetView" title="Görünümü Sıfırla / Ortala">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
               Ortala
@@ -582,6 +659,125 @@
           </div>
         </div>
 
+        <!-- AS-BUILT & SITE QC VERIFICATION VIEWPORT -->
+        <div class="vis-content" id="viewAsBuilt">
+          <div class="asbuilt-container">
+            <div class="asbuilt-header-bar">
+              <div>
+                <h3 class="asbuilt-title">📋 Şantiye As-Built Ölçüm Girişi & Saha Tolerans Tahkiki</h3>
+                <p class="asbuilt-subtitle">ASME B31.8 Md. 841.2.3 & ASME B31.4 Md. 406.2.1 saha kabul toleransları ve QC kaşesi</p>
+              </div>
+              <div class="asbuilt-actions">
+                <button type="button" class="btn btn-sm btn-outline" id="btnSyncAsBuiltCalc" title="Tasarım hesaplama sonuçlarını otomatik olarak ölçüm kutucuklarına doldur">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                  <span>Tasarım Değerlerini Doldur</span>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline" id="btnClearAsBuilt" title="Tüm ölçüm alanlarını temizle">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  <span>Temizle</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="asbuilt-grid">
+              <!-- Left Column: Field Measurements Input -->
+              <div class="asbuilt-card">
+                <div class="asbuilt-card-title">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  <span>Saha Fiziksel Ölçümleri (As-Built)</span>
+                </div>
+                
+                <div class="asbuilt-form-grid">
+                  <div class="input-group">
+                    <label for="inpAsBuiltSpool">Boru Spool / Büküm No</label>
+                    <input type="text" id="inpAsBuiltSpool" value="SP-01 / B-104" placeholder="Örn: SP-01 / B-104" class="form-control">
+                  </div>
+                  <div class="input-group">
+                    <label for="inpAsBuiltDate">Muayene / Ölçüm Tarihi</label>
+                    <input type="date" id="inpAsBuiltDate" class="form-control">
+                  </div>
+                  <div class="input-group">
+                    <label for="inpAsBuiltAngle">Ölçülen Büküm Açısı (θ<sub>meas</sub>) [°]</label>
+                    <input type="number" id="inpAsBuiltAngle" step="0.01" placeholder="Örn: 10.05" class="form-control">
+                    <span class="field-hint">Hedef: <strong id="asBuiltTargetAngle">10.00°</strong> (Tolerans: ±0.20°)</span>
+                  </div>
+                  <div class="input-group">
+                    <label for="inpAsBuiltWT">Ölçülen Min Ekstrados Cidar (t<sub>meas</sub>) [mm]</label>
+                    <input type="number" id="inpAsBuiltWT" step="0.01" placeholder="Ultrasonik UT ölçümü" class="form-control">
+                    <span class="field-hint">Tasarım Min: <strong id="asBuiltTargetWT">11.23 mm</strong></span>
+                  </div>
+                  <div class="input-group">
+                    <label for="inpAsBuiltOvality">Ölçülen Çap Ovalliği [%]</label>
+                    <input type="number" id="inpAsBuiltOvality" step="0.01" placeholder="(Dmax - Dmin) / Dnom * 100" class="form-control">
+                    <span class="field-hint">Standart Limit: <strong id="asBuiltTargetOvality">≤ %2.50</strong></span>
+                  </div>
+                  <div class="input-group">
+                    <label for="inpAsBuiltRipple">Ölçülen Dalgalanma / Ripple (h<sub>meas</sub>) [mm]</label>
+                    <input type="number" id="inpAsBuiltRipple" step="0.1" value="0.0" placeholder="Tepe-çukur farkı" class="form-control">
+                    <span class="field-hint">Maks İzin: <strong id="asBuiltTargetRipple">≤ 9.14 mm (%1.0 D)</strong></span>
+                  </div>
+                  <div class="input-group span-full">
+                    <label for="inpAsBuiltInspector">QC Borulama Mühendisi / Denetçi Kaşesi</label>
+                    <input type="text" id="inpAsBuiltInspector" placeholder="Ad Soyad / QC Kaşe No (Örn: Ahmet Yılmaz - QC-84)" class="form-control">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right Column: Verification Table & QC Acceptance Stamp -->
+              <div class="asbuilt-card">
+                <div class="asbuilt-card-title">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  <span>Saha Tolerans Sapma Tahkiki & QC Kararı</span>
+                </div>
+
+                <table class="asbuilt-eval-table">
+                  <thead>
+                    <tr>
+                      <th>Kontrol Kriteri</th>
+                      <th>Sapma (Δ)</th>
+                      <th>Kriter</th>
+                      <th>Durum</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><strong>Açı Doğruluğu (θ)</strong></td>
+                      <td id="asBuiltDevAngle">—</td>
+                      <td>|Δθ| ≤ 0.20°</td>
+                      <td><span class="asbuilt-status-pill neutral" id="asBuiltStatusAngle">BEKLENİYOR</span></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Cidar Kalınlığı (t)</strong></td>
+                      <td id="asBuiltDevWT">—</td>
+                      <td>t ≥ t<sub>min,des</sub></td>
+                      <td><span class="asbuilt-status-pill neutral" id="asBuiltStatusWT">BEKLENİYOR</span></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Boru Ovalliği</strong></td>
+                      <td id="asBuiltDevOvality">—</td>
+                      <td>≤ %2.50</td>
+                      <td><span class="asbuilt-status-pill neutral" id="asBuiltStatusOvality">BEKLENİYOR</span></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Dalgalanma (Ripple)</strong></td>
+                      <td id="asBuiltDevRipple">—</td>
+                      <td>h ≤ %1.0 D</td>
+                      <td><span class="asbuilt-status-pill neutral" id="asBuiltStatusRipple">BEKLENİYOR</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <!-- Official Acceptance Stamp Box -->
+                <div class="asbuilt-stamp-box">
+                  <div class="stamp-header">RESMİ ŞANTİYE QC HÜKMÜ</div>
+                  <div class="asbuilt-verdict-badge neutral" id="badgeAsBuiltVerdict">ÖLÇÜM GİRİŞİ BEKLENİYOR</div>
+                  <div class="asbuilt-verdict-summary" id="txtAsBuiltSummary">Saha büküm ölçümleri girildiğinde ASME B31.8 / B31.4 tolerans tahkiki otomatik gerçekleşecektir.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- 3D VIEWPORT (Three.js WebGL with Orbit Controls) -->
         <div class="vis-content" id="view3D">
           <div class="canvas-3d-wrapper" id="container3D" role="img" aria-label="3D bükülmüş boru modeli">
@@ -611,6 +807,8 @@
               <button class="btn-3d-control" id="btn3dPlay" title="Bükümü paso paso oynat" aria-pressed="false">▶ Bükümü Oynat</button>
               <button class="btn-3d-control" id="btn3dStep" title="Bir paso ilerle">Adım İleri</button>
               <span class="anim-progress" id="animProgress">Hazır</span>
+              <button class="btn-3d-control btn-easter-egg" id="btnExitTreeMode" style="display:none;" title="Standart Hidrolik Büküm Makinesine Dön (ESC)">🌳 Ağaç Bükümünden Çık (ESC)</button>
+              <span class="badge-easter-egg" id="badgeEasterEggThumbsUp" style="display:none;">👷 Şantiye Şefi: Tamamdır Usta! 👍</span>
             </div>
           </div>
         </div>
@@ -620,7 +818,20 @@
       <div class="details-accordion-card">
         <div class="card-header-flex">
           <div>
-            <h2 class="card-section-title">Hidrolik Büküm Adımları (Paso / Pull Tablosu) & Saha Operatör Kartı</h3>            <p class="card-section-sub">Boru boyu, büküm yayı ve adım sayısına göre hidrolik pres baskı noktaları</p>
+            <h2 class="card-section-title">
+              Hidrolik Büküm Adımları (Paso / Pull Tablosu) & Saha Operatör Kartı
+              <span class="info-trigger" tabindex="0" role="button" aria-label="Paso Hesabı Formülü ve Standart Notu">
+                <svg class="info-icon" viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+                <div class="info-popover">
+                  <div class="popover-badge">Saha İmalat Standardı</div>
+                  <div class="popover-title">Paso Sayısı ve Adım Mesafesi (Pull Pitch)</div>
+                  <div class="popover-formula">N = ⌈θ<sub>hedef</sub> / Δθ<sub>max</sub>⌉ &nbsp;|&nbsp; Δs = L<sub>arc</sub> / N</div>
+                  <div class="popover-desc">Boru boyu ve düz teğetler düşüldükten sonra kalan büküm yayı, dalgalanma (ripple) oluşturmayacak şekilde eşit adımlara bölünür. Her adımda makine ayar açısı eşit basılır.</div>
+                  <div class="popover-limit"><strong>Kabul Kriteri:</strong> Her basmada Δθ ≤ 0.75° - 1.5° (Çap/kalınlık sınırı)</div>
+                </div>
+              </span>
+            </h2>
+            <p class="card-section-sub">Boru boyu, büküm yayı ve adım sayısına göre hidrolik pres baskı noktaları</p>
           </div>
           <div class="card-header-right">
             <div class="pull-summary-pill" id="pullSummaryPill">
@@ -669,7 +880,19 @@
         <!-- Safety Card: Wall Thinning -->
         <div class="matrix-card">
           <div class="matrix-card-header">
-            <h3>Cidar İncelmesi ve Barlow Basınç Güvenliği</h3>
+            <h3>
+              Cidar İncelmesi ve Barlow Basınç Güvenliği
+              <span class="info-trigger" tabindex="0" role="button" aria-label="Cidar İncelmesi Formül Notu">
+                <svg class="info-icon" viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+                <div class="info-popover">
+                  <div class="popover-badge">ASME B31.8 / Barlow Formülü</div>
+                  <div class="popover-title">Extrados Cidar İncelmesi Tahkiki</div>
+                  <div class="popover-formula">Δt<sub>thin</sub> = t<sub>nom</sub> · D<sub>o</sub> / (2R + D<sub>o</sub>)</div>
+                  <div class="popover-desc">Büküm esnasında çekme gerilmesine maruz kalan dış cidarın incelme miktarı hesaplanır ve kalan et kalınlığı Barlow tasarım sınırıyla kıyaslanır.</div>
+                  <div class="popover-limit"><strong>Kabul Kriteri:</strong> t<sub>extrados</sub> ≥ t<sub>min,design</sub> = (P·D)/(2·S·F·E·T)</div>
+                </div>
+              </span>
+            </h3>
             <span class="badge-pill pass" id="badgeThinningMatrix">PASS</span>
           </div>
           <ul class="matrix-list">
@@ -699,7 +922,19 @@
         <!-- Safety Card: Ovality & Mandrel -->
         <div class="matrix-card">
           <div class="matrix-card-header">
-            <h3>Ovalleşme & Akıllı Pig (ILI) Geçiş Şartı</h3>
+            <h3>
+              Ovalleşme & Akıllı Pig (ILI) Geçiş Şartı
+              <span class="info-trigger" tabindex="0" role="button" aria-label="Ovalleşme ve Mandrel Formül Notu">
+                <svg class="info-icon" viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+                <div class="info-popover">
+                  <div class="popover-badge">ASME B31.8 Md. 841.2.3-a-6</div>
+                  <div class="popover-title">ILI Akıllı Pig & Çap Azalması</div>
+                  <div class="popover-formula">ΔID = D<sub>o</sub> · (Ovalite / 100) &nbsp;|&nbsp; D/t = D<sub>o</sub> / t<sub>nom</sub></div>
+                  <div class="popover-desc">D/t &gt; 50 durumlarında boru kesiti kolaylıkla ezilir (flattening). Hidrolik kamalı iç mandrel desteği kullanılarak cidar içten desteklenir ve dairesellik korunur.</div>
+                  <div class="popover-limit"><strong>Kabul Kriteri:</strong> Ovalite ≤ %2.50 ve Kesit Daralması ≤ %2.5 D<sub>o</sub></div>
+                </div>
+              </span>
+            </h3>
             <span class="badge-pill pass" id="badgeOvalityMatrix">PASS</span>
           </div>
           <ul class="matrix-list">
@@ -729,7 +964,19 @@
         <!-- Safety Card: Weld Seam & Springback -->
         <div class="matrix-card">
           <div class="matrix-card-header">
-            <h3>Kaynak Dikişi Konumu & Geri Yaylanma</h3>
+            <h3>
+              Kaynak Dikişi Konumu & Geri Yaylanma
+              <span class="info-trigger" tabindex="0" role="button" aria-label="Kaynak Dikişi ve Geri Yaylanma Notu">
+                <svg class="info-icon" viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+                <div class="info-popover">
+                  <div class="popover-badge">ASME B31.8 / B31.4 Md. 406.2.1</div>
+                  <div class="popover-title">Kaynak Dikişi Nötr Eksen Kuralı</div>
+                  <div class="popover-formula">Dikiş Yönü: Saat 3 veya 9 (Nötr Eksen ±10°)</div>
+                  <div class="popover-desc">Boyuna (ERW/SAW) veya spiral dikiş extrados (çekme) veya intrados (basma) eksenine gelmemelidir; nötr eksene ±10° tolerans dahilinde yerleştirilmelidir.</div>
+                  <div class="popover-limit"><strong>Kabul Kriteri:</strong> Dikiş sapması ≤ ±10° (Çatlak ve ayrılma önleme)</div>
+                </div>
+              </span>
+            </h3>
             <span class="badge-pill pass" id="badgeSeamMatrix">UYGUN</span>
           </div>
           <ul class="matrix-list">
@@ -759,7 +1006,19 @@
         <!-- Safety Card: ASME B31.8 Md. 841.2.3 Ripple & Method 2 Rate -->
         <div class="matrix-card">
           <div class="matrix-card-header">
-            <h3>ASME B31.8 Md. 841.2.3 Dalgalanma (Ripple) & Eğrilik Hızı</h3>
+            <h3>
+              ASME B31.8 Md. 841.2.3 Dalgalanma (Ripple) & Eğrilik Hızı
+              <span class="info-trigger" tabindex="0" role="button" aria-label="Dalgalanma ve Yöntem 2 Formül Notu">
+                <svg class="info-icon" viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+                <div class="info-popover">
+                  <div class="popover-badge">ASME B31.8 Md. 841.2.3 Yöntem 2</div>
+                  <div class="popover-title">Birim Çap Büküm Hızı & Ripple</div>
+                  <div class="popover-formula">Eğrilik Hızı (°/D) = (θ / L<sub>bent</sub>) · D<sub>o</sub> ≤ Tablo Limiti</div>
+                  <div class="popover-desc">Boru boyu boyunca 1 boru çapı (1D) uzunluğundaki yay parçasında oluşan açı değişimidir. Basma tarafında oluşabilecek dalga (ripple) tepe-çukur farkı olarak ölçülür.</div>
+                  <div class="popover-limit"><strong>Kabul Kriteri:</strong> h<sub>ripple</sub> ≤ %1.0 D<sub>o</sub> ve ≤ 1.90°/D eğrilik hızı</div>
+                </div>
+              </span>
+            </h3>
             <span class="badge-pill pass" id="badgeRippleMatrix">PASS</span>
           </div>
           <ul class="matrix-list">
@@ -795,7 +1054,19 @@
         <!-- Safety Card: ASME B31.8 Md. 833 / B31.4 Md. 402.3 Combined Stress & Von Mises -->
         <div class="matrix-card">
           <div class="matrix-card-header">
-            <h3>Bileşik Gerilme & Von Mises Tahkiki (ASME 833 / 402.3)</h3>
+            <h3>
+              Bileşik Gerilme & Von Mises Tahkiki (ASME 833 / 402.3)
+              <span class="info-trigger" tabindex="0" role="button" aria-label="Bileşik Gerilme ve Von Mises Formül Notu">
+                <svg class="info-icon" viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+                <div class="info-popover">
+                  <div class="popover-badge">ASME B31.8 Md. 833 / B31.4 Md. 402.3</div>
+                  <div class="popover-title">Von Mises Eşdeğer Gerilme Tahkiki</div>
+                  <div class="popover-formula">S<sub>eq</sub> = √(S<sub>h</sub>² + S<sub>L</sub>² - S<sub>h</sub>·S<sub>L</sub> + 3τ²)</div>
+                  <div class="popover-desc">İç basınç kaynaklı teğetsel gerilme (S<sub>h</sub>) ile sıcaklık ve büküm eğilmesinden kaynaklanan boyuna gerilme (S<sub>L</sub>) bileşkesi hesaplanır.</div>
+                  <div class="popover-limit"><strong>Kabul Kriteri:</strong> S<sub>eq</sub> ≤ 0.90 · SMYS · T (Kullanım Oranı ≤ %100)</div>
+                </div>
+              </span>
+            </h3>
             <span class="badge-pill pass" id="badgeCombinedStressMatrix">PASS</span>
           </div>
           <ul class="matrix-list">
@@ -818,6 +1089,48 @@
             <li>
               <span>Kullanım Oranı / Emniyet:</span>
               <strong id="matValStressRatio" class="text-success">%52.3 (KABUL)</strong>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Safety Card: Bending Machine Ram Force & Plastic Moment -->
+        <div class="matrix-card">
+          <div class="matrix-card-header">
+            <h3>
+              Büküm Makinesi Ram Tonajı & Plastik Moment
+              <span class="info-trigger" tabindex="0" role="button" aria-label="Ram Tonajı ve Plastik Moment Formül Notu">
+                <svg class="info-icon" viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+                <div class="info-popover">
+                  <div class="popover-badge">Plastik Eğilme Teorisi</div>
+                  <div class="popover-title">Gereken Büküm Ram Tonajı</div>
+                  <div class="popover-formula">Z<sub>p</sub> = (D<sub>o</sub>³ - D<sub>i</sub>³)/6 &nbsp;|&nbsp; M<sub>p</sub> = Z<sub>p</sub>·SMYS &nbsp;|&nbsp; F<sub>ram</sub> ≈ 4·M<sub>p</sub>/L<sub>span</sub></div>
+                  <div class="popover-desc">Borunun elastik sınırı aşıp kalıcı büküm alabilmesi için gereken plastik momenttir. Mesnet açıklığı L<sub>span</sub> üzerinden hidrolik büküm makinesinin gereken tonajı belirlenir.</div>
+                  <div class="popover-limit"><strong>Kabul Kriteri:</strong> Makine Kapasitesi ≥ F<sub>ram</sub> (kN / Ton)</div>
+                </div>
+              </span>
+            </h3>
+            <span class="badge-pill pass" id="badgeMachineForceMatrix">UYGUN</span>
+          </div>
+          <ul class="matrix-list">
+            <li>
+              <span>Plastik Kesit Modülü (Z<sub>p</sub> = (D<sub>o</sub>³ - D<sub>i</sub>³)/6):</span>
+              <strong id="matValPlasticSectionMod">11.60 × 10⁶ mm³</strong>
+            </li>
+            <li>
+              <span>Plastik Eğilme Momenti (M<sub>p</sub> = Z<sub>p</sub>·SMYS):</span>
+              <strong id="matValPlasticMoment">5,626 kNm</strong>
+            </li>
+            <li>
+              <span>Gereken Tahmini Ram Kuvveti (F<sub>ram</sub>):</span>
+              <strong id="matValRamForceKn">9,844 kN (~1,004 Ton)</strong>
+            </li>
+            <li>
+              <span>Önerilen Makine Sınıfı:</span>
+              <strong id="matValMachineClass">PB 36"-48" (Ağır Hizmet)</strong>
+            </li>
+            <li>
+              <span>Makine Kapasite Yeterliliği:</span>
+              <strong id="matValMachineStatus" class="text-success">KAPASİTE DAHİLİ (%91 Kullanım)</strong>
             </li>
           </ul>
         </div>
@@ -920,6 +1233,12 @@
           <td class="prt-label"><strong>Makine Ayar Açısı (θ<sub>mach</sub>):</strong></td>
           <td id="prtMachineAngle">10.82°</td>
         </tr>
+        <tr>
+          <td class="prt-label">Plastik Moment & Ram Kuvveti:</td>
+          <td id="prtBendingForce">5.626 kNm / ~1.004 Ton</td>
+          <td class="prt-label">Önerilen Büküm Makinesi:</td>
+          <td id="prtMachineClass">PB 36"-48" (KAPASİTE DAHİLİ)</td>
+        </tr>
       </tbody>
     </table>
 
@@ -997,6 +1316,65 @@
       </thead>
       <tbody id="prtPullsBody">
       </tbody>
+    </table>
+
+    <!-- 6. Şantiye As-Built Gerçekleşen Ölçümler ve Saha QC Kabul Raporu -->
+    <table class="print-table" id="prtAsBuiltTable">
+      <thead>
+        <tr>
+          <th colspan="6" class="print-th-section">6. ŞANTİYE AS-BUILT GERÇEKLEŞEN ÖLÇÜMLER VE NİHAİ KABUL RAPORU</th>
+        </tr>
+        <tr>
+          <th>Parametre</th>
+          <th>Tasarım / Standart Limit</th>
+          <th>Saha Ölçümü</th>
+          <th>Sapma (Δ)</th>
+          <th>Tolerans Kriteri</th>
+          <th>Sonuç</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="prt-label">Büküm Açısı (θ):</td>
+          <td id="prtAsBuiltTargetAngle">10,00°</td>
+          <td id="prtAsBuiltMeasAngle">—</td>
+          <td id="prtAsBuiltDevAngle">—</td>
+          <td>ASME Saha: ±0,20°</td>
+          <td id="prtAsBuiltStatusAngle"><strong>BEKLENİYOR</strong></td>
+        </tr>
+        <tr>
+          <td class="prt-label">Ekstrados Kalan Cidar:</td>
+          <td id="prtAsBuiltTargetWT">t<sub>min</sub>: 11,23 mm</td>
+          <td id="prtAsBuiltMeasWT">—</td>
+          <td id="prtAsBuiltDevWT">—</td>
+          <td>t<sub>meas</sub> ≥ t<sub>min,design</sub></td>
+          <td id="prtAsBuiltStatusWT"><strong>BEKLENİYOR</strong></td>
+        </tr>
+        <tr>
+          <td class="prt-label">Boru Ovalliği:</td>
+          <td>Maks: %2,50</td>
+          <td id="prtAsBuiltMeasOvality">—</td>
+          <td id="prtAsBuiltDevOvality">—</td>
+          <td>ASME B31.8 / B31.4: ≤ %2,50</td>
+          <td id="prtAsBuiltStatusOvality"><strong>BEKLENİYOR</strong></td>
+        </tr>
+        <tr>
+          <td class="prt-label">Ondülasyon / Ripple:</td>
+          <td id="prtAsBuiltTargetRipple">≤ 9,14 mm (%1,0 D)</td>
+          <td id="prtAsBuiltMeasRipple">—</td>
+          <td id="prtAsBuiltDevRipple">—</td>
+          <td>Md. 841.2.3: h ≤ %1,0 D</td>
+          <td id="prtAsBuiltStatusRipple"><strong>BEKLENİYOR</strong></td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="2" class="prt-label">Spool / Denetçi / Tarih:</td>
+          <td colspan="2" id="prtAsBuiltMeta">—</td>
+          <td class="prt-label">NİHAİ AS-BUILT KARARI:</td>
+          <td id="prtAsBuiltFinalVerdict" style="font-weight:bold;">ÖLÇÜM BEKLENİYOR</td>
+        </tr>
+      </tfoot>
     </table>
 
     <!-- Sign-off Approvals Section -->
@@ -1118,6 +1496,75 @@
         <button type="button" class="btn btn-outline" id="btnCloseSlopeModal">Vazgeç</button>
         <button type="button" class="btn btn-primary" id="btnApplyCalculatedSlope">
           <span>✓ Hesaplanan Açıyı Modele Aktar</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3D COMPOUND BEND CALCULATOR MODAL -->
+  <div class="modal-backdrop" id="compoundModal" hidden>
+    <div class="modal-card compound-modal-card" role="dialog" aria-modal="true" aria-labelledby="compoundModalTitle">
+      <div class="modal-header-flex">
+        <h2 id="compoundModalTitle">3D Bileşik Büküm & Makine Roll Açısı Hesaplayıcı</h2>
+        <button type="button" class="btn-close-modal" id="btnCloseCompoundModalX" aria-label="Kapat">&times;</button>
+      </div>
+      <p class="modal-subtitle">
+        Güzergah hem yatay kurp (sağ/sol) hem de düşey eğim (tepe/vadi) içerdiğinde, borunun tek bir düzlemde bükülüp hendekte doğru oturması için uzaysal 3D bileşke açıyı (&theta;<sub>3D</sub>) ve boru döndürme açısını (&psi; Roll Angle) hesaplar.
+      </p>
+
+      <div class="form-row">
+        <!-- Horizontal Component -->
+        <div class="form-group col-6">
+          <label for="inpHoriAngle" class="field-label">Yatay Sapma Açısı (&Delta;H)</label>
+          <div class="input-with-unit">
+            <input type="number" id="inpHoriAngle" class="form-input" value="8.0" min="0" max="60" step="0.25">
+            <select id="selHoriDir" class="form-select select-unit">
+              <option value="right" selected>Sağ Kurp (Right)</option>
+              <option value="left">Sol Kurp (Left)</option>
+            </select>
+          </div>
+          <span class="field-helper">Güzergahın plandaki yatay kırılma açısı</span>
+        </div>
+
+        <!-- Vertical Component -->
+        <div class="form-group col-6">
+          <label for="inpVertAngle" class="field-label">Düşey Eğim Açısı (&Delta;V)</label>
+          <div class="input-with-unit">
+            <input type="number" id="inpVertAngle" class="form-input" value="6.0" min="0" max="60" step="0.25">
+            <select id="selVertDir" class="form-select select-unit">
+              <option value="overbend" selected>Tepe (Overbend)</option>
+              <option value="sagbend">Vadi (Sagbend)</option>
+            </select>
+          </div>
+          <span class="field-helper">Güzergahın profildeki düşey kırılma açısı</span>
+        </div>
+      </div>
+
+      <!-- Result Card -->
+      <div class="slope-result-box" id="compoundResultBox">
+        <div class="slope-result-main">
+          <div class="slope-res-col">
+            <span class="slope-res-title">Bileşke 3D Büküm Açısı (&theta;<sub>3D</sub>)</span>
+            <span class="slope-res-value" id="valCompound3DAngle">9.99°</span>
+          </div>
+          <div class="slope-res-col">
+            <span class="slope-res-title">Büküm Presi Roll Açısı (&psi;)</span>
+            <span class="slope-res-value text-warning" id="valCompoundRollAngle">36.9°</span>
+          </div>
+          <div class="slope-res-col">
+            <span class="slope-res-title">Uzaysal Büküm Karakteri</span>
+            <span class="badge-mini info" id="badgeCompoundType">3D KOMBİNE (Sağ + Tepe)</span>
+          </div>
+        </div>
+        <div class="slope-res-desc" id="descCompoundResult">
+          cos(&theta;<sub>3D</sub>) = cos(&Delta;H) &middot; cos(&Delta;V) formülüyle küresel trigonometrik çözüm. Boru ekseni büküm presinde yatay eksenden 36.9° döndürülerek 9.99° açıyla tek seferde bükülmelidir.
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" id="btnCloseCompoundModal">Vazgeç</button>
+        <button type="button" class="btn btn-primary" id="btnApplyCompoundBend">
+          <span>✓ Bileşke Açıyı Modele Aktar</span>
         </button>
       </div>
     </div>
