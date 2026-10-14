@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://api.github.com https://raw.githubusercontent.com; img-src 'self' data: blob:;">
   <meta name="theme-color" content="#0b0f19">
   <meta name="description" content="ColdBend Pro: boru hattı sahada soğuk büküm geometri, cidar incelmesi, ovalleşme ve geri yaylanma hesap motoru.">
   <meta property="og:title" content="ColdBend Pro — Soğuk Büküm Hesap Motoru">
@@ -18,11 +19,17 @@
   <!-- Offline local Three.js and OrbitControls for remote pipeline field work without internet -->
   <script src="lib/three.min.js"></script>
   <script src="lib/OrbitControls.js"></script>
-  <!-- CDN Fallbacks in case lib is missing -->
+  <!-- CDN Fallbacks in case local lib is missing -->
   <script>
     if (typeof THREE === 'undefined') {
-      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');
-      document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"><\/script>');
+      const s1 = document.createElement('script');
+      s1.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+      s1.onload = () => {
+        const s2 = document.createElement('script');
+        s2.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js';
+        document.head.appendChild(s2);
+      };
+      document.head.appendChild(s1);
     }
   </script>
 </head>
