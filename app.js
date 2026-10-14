@@ -3278,35 +3278,38 @@ function update3DPipe(calc, angleOverrideDeg = null) {
   
   if (state.seamVisible3D && state.seamType !== 'SMLS') {
     const seamPoints = [];
+    const beadRadius = Math.max(0.012, pipeRadius * 0.032);
+    const rSurface = pipeRadius + beadRadius * 0.45; // Raised weld reinforcement bead sitting on pipe surface
     
     if (state.seamType === 'SAWH') {
-      // SAWH: Helical Spiral Weld Seam wrapping 360° around the pipe
+      // SAWH: Continuous Helical Spiral Weld Seam hugging the cylindrical pipe surface
       const helixAngleRad = 58 * Math.PI / 180;
       const pitch = Math.PI * (2 * pipeRadius) / Math.tan(helixAngleRad);
-      const numSamples = animLowDetail ? 90 : 240;
+      const numTurns = Math.max(1, totalLength / pitch);
+      // High sample density per turn eliminates any polygonal chord facets
+      const ptsPerTurn = animLowDetail ? 16 : 36;
+      const numSamples = Math.max(animLowDetail ? 100 : 260, Math.round(numTurns * ptsPerTurn));
+      const frames = pipeCurve.computeFrenetFrames(numSamples, false);
       
       for (let i = 0; i <= numSamples; i++) {
         const u = i / numSamples;
         const pt = pipeCurve.getPointAt(u);
-        const tangent = pipeCurve.getTangentAt(u).normalize();
-        
-        const up = new THREE.Vector3(0, 1, 0);
-        let binormal = new THREE.Vector3().crossVectors(tangent, up).normalize();
-        if (binormal.lengthSq() < 0.001) binormal.set(0, 0, 1);
-        const normal = new THREE.Vector3().crossVectors(binormal, tangent).normalize();
+        const normal = frames.normals[i];
+        const binormal = frames.binormals[i];
         
         const s = u * totalLength;
         const phi = (2 * Math.PI * s) / pitch + seamRadOffset;
         
         const surfaceOffset = new THREE.Vector3()
-          .addScaledVector(normal, Math.cos(phi) * pipeRadius * 1.018)
-          .addScaledVector(binormal, Math.sin(phi) * pipeRadius * 1.018);
+          .addScaledVector(normal, Math.cos(phi) * rSurface)
+          .addScaledVector(binormal, Math.sin(phi) * rSurface);
           
         seamPoints.push(new THREE.Vector3().addVectors(pt, surfaceOffset));
       }
       
       const seamCurve = new THREE.CatmullRomCurve3(seamPoints);
-      const seamGeom = new THREE.TubeGeometry(seamCurve, animLowDetail ? 80 : 200, Math.max(0.015, pipeRadius * 0.038), 8, false);
+      const tubularSegments = Math.max(animLowDetail ? 80 : 240, Math.round(numTurns * (animLowDetail ? 14 : 32)));
+      const seamGeom = new THREE.TubeGeometry(seamCurve, tubularSegments, beadRadius, animLowDetail ? 6 : 8, false);
       const seamMat = new THREE.MeshStandardMaterial({
         color: 0xf59e0b,
         metalness: 0.9,
@@ -3318,25 +3321,22 @@ function update3DPipe(calc, angleOverrideDeg = null) {
     } else if (state.seamType === 'SAWL') {
       // SAWL / HFW: Longitudinal Weld Seam along the specified clock angle
       const numSamples = animLowDetail ? 48 : 120;
+      const frames = pipeCurve.computeFrenetFrames(numSamples, false);
       for (let i = 0; i <= numSamples; i++) {
         const u = i / numSamples;
         const pt = pipeCurve.getPointAt(u);
-        const tangent = pipeCurve.getTangentAt(u).normalize();
-        
-        const up = new THREE.Vector3(0, 1, 0);
-        let binormal = new THREE.Vector3().crossVectors(tangent, up).normalize();
-        if (binormal.lengthSq() < 0.001) binormal.set(0, 0, 1);
-        const normal = new THREE.Vector3().crossVectors(binormal, tangent).normalize();
+        const normal = frames.normals[i];
+        const binormal = frames.binormals[i];
         
         const surfaceOffset = new THREE.Vector3()
-          .addScaledVector(normal, Math.cos(seamRadOffset) * pipeRadius * 1.018)
-          .addScaledVector(binormal, Math.sin(seamRadOffset) * pipeRadius * 1.018);
+          .addScaledVector(normal, Math.cos(seamRadOffset) * rSurface)
+          .addScaledVector(binormal, Math.sin(seamRadOffset) * rSurface);
           
         seamPoints.push(new THREE.Vector3().addVectors(pt, surfaceOffset));
       }
       
       const seamCurve = new THREE.CatmullRomCurve3(seamPoints);
-      const seamGeom = new THREE.TubeGeometry(seamCurve, animLowDetail ? 40 : 100, Math.max(0.018, pipeRadius * 0.042), 8, false);
+      const seamGeom = new THREE.TubeGeometry(seamCurve, animLowDetail ? 40 : 100, Math.max(0.016, pipeRadius * 0.038), 8, false);
       const seamMat = new THREE.MeshStandardMaterial({
         color: 0xfbbf24,
         metalness: 0.88,
