@@ -284,6 +284,7 @@ const dom = {
   badgeEasterEggThumbsUp: document.getElementById('badgeEasterEggThumbsUp'),
   legend3DValueExt: document.getElementById('legend3DValueExt'),
   legend3DValueInt: document.getElementById('legend3DValueInt'),
+  legend3DValueWt: document.getElementById('legend3DValueWt'),
 
   // Update Manager
   btnCheckUpdates: document.getElementById('btnCheckUpdates'),
@@ -2444,6 +2445,8 @@ let pipeCenter3D = null; // pipe midpoint, applied to orbit target on tab switch
 // Single home framing for the 3D view (opening view; resets re-fit distance)
 const CAM_HOME_POS = [0, 7, 18];
 let pipeMesh3D = null;
+let pipeInnerMesh3D = null;
+let pipeCaps3D = [];
 let mandrelMesh3D = null;
 let seamLine3D = null;
 let girthWeldMesh3D = null;
@@ -2673,17 +2676,25 @@ function update3DPipe(calc, angleOverrideDeg = null) {
   const disposeMesh = (m) => {
     if (!m) return;
     scene3D.remove(m);
-    if (m.geometry) m.geometry.dispose();
-    const mats = Array.isArray(m.material) ? m.material : [m.material];
-    mats.forEach((mt) => { if (mt && mt.dispose) mt.dispose(); });
+    m.traverse((o) => {
+      if (o.geometry) o.geometry.dispose();
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      mats.forEach((mt) => {
+        if (mt && mt.map && mt.map.dispose) mt.map.dispose();
+        if (mt && mt.dispose) mt.dispose();
+      });
+    });
   };
   disposeMesh(pipeMesh3D);
+  disposeMesh(pipeInnerMesh3D);
   disposeMesh(mandrelMesh3D);
   disposeMesh(seamLine3D);
   disposeMesh(girthWeldMesh3D);
+  (pipeCaps3D || []).forEach(disposeMesh);
+  pipeCaps3D = [];
   (pullMarkers3D || []).forEach(disposeMesh);
   pullMarkers3D = [];
-  pipeMesh3D = mandrelMesh3D = seamLine3D = girthWeldMesh3D = null;
+  pipeMesh3D = pipeInnerMesh3D = mandrelMesh3D = seamLine3D = girthWeldMesh3D = null;
   
   // Geometry parameters
   const totalLength = state.length;
@@ -2989,6 +3000,13 @@ function update3DPipe(calc, angleOverrideDeg = null) {
     if (dom.legend3DValueInt) dom.legend3DValueInt.textContent = '—';
   }
 
+  // Update wall thickness display in legend
+  if (dom.legend3DValueWt) {
+    const idVal = Math.max(0, state.od - 2 * state.wt);
+    const dtVal = state.wt > 0 ? (state.od / state.wt).toFixed(1) : '—';
+    dom.legend3DValueWt.textContent = `t ${state.wt.toFixed(1)} mm · ID ${idVal.toFixed(1)} mm (D/t: ${dtVal})`;
+  }
+
   // When the internal mandrel is shown, fade the shell so the green
   // mandrel inside the opaque tube actually becomes visible.
   const mandrelShown = state.useMandrel && state.mandrelVisible3D;
@@ -3003,6 +3021,112 @@ function update3DPipe(calc, angleOverrideDeg = null) {
   
   pipeMesh3D = new THREE.Mesh(pipeGeom, pipeMaterial);
   scene3D.add(pipeMesh3D);
+
+  // --- Real Hollow Pipe Geometry: Inner Bore Tube & Annular Wall End Caps ---
+  const wtM = state.wt / 1000;
+  const innerRadius = Math.max(0.001, pipeRadius - wtM);
+  const pipeInnerGeom = new THREE.TubeGeometry(pipeCurve, tubularSegments, innerRadius, radialSegments, false);
+  const pipeInnerMat = new THREE.MeshStandardMaterial({
+    color: themeIsLight ? 0x1e293b : 0x0f172a,
+    metalness: 0.65,
+    roughness: 0.55,
+    side: THREE.BackSide,
+    transparent: mandrelShown,
+    opacity: mandrelShown ? 0.30 : 1.0
+  });
+  pipeInnerMesh3D = new THREE.Mesh(pipeInnerGeom, pipeInnerMat);
+  scene3D.add(pipeInnerMesh3D);
+
+  // Annular Cut Faces at both pipe ends (front u=0 and rear u=1)
+  const endFaceMat = new THREE.MeshStandardMaterial({
+    color: themeIsLight ? 0x475569 : 0x334155,
+    metalness: 0.8,
+    roughness: 0.32,
+    side: THREE.DoubleSide
+  });
+
+  const ptStart = pipeCurve.getPointAt(0);
+  const tangStart = pipeCurve.getTangentAt(0).normalize();
+  const ringGeomStart = new THREE.RingGeometry(innerRadius, pipeRadius, radialSegments);
+  const qStart = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangStart);
+  ringGeomStart.applyQuaternion(qStart);
+  ringGeomStart.translate(ptStart.x, ptStart.y, ptStart.z);
+  const capStart = new THREE.Mesh(ringGeomStart, endFaceMat);
+  scene3D.add(capStart);
+  pipeCaps3D.push(capStart);
+
+  const ptEnd = pipeCurve.getPointAt(1);
+  const tangEnd = pipeCurve.getTangentAt(1).normalize();
+  const ringGeomEnd = new THREE.RingGeometry(innerRadius, pipeRadius, radialSegments);
+  const qEnd = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangEnd);
+  ringGeomEnd.applyQuaternion(qEnd);
+  ringGeomEnd.translate(ptEnd.x, ptEnd.y, ptEnd.z);
+  const capEnd = new THREE.Mesh(ringGeomEnd, endFaceMat);
+  scene3D.add(capEnd);
+  pipeCaps3D.push(capEnd);
+
+  // 3D Wall Thickness Leader Dimension & Engineering Callout Sprite at Front Cut Face
+  const upRef = new THREE.Vector3(0, 1, 0);
+  let sideVec = new THREE.Vector3().crossVectors(tangStart, upRef).normalize();
+  if (sideVec.lengthSq() < 0.001) sideVec.set(1, 0, 0);
+  const normalRadial = new THREE.Vector3().crossVectors(sideVec, tangStart).normalize();
+
+  const ptInner = ptStart.clone().addScaledVector(normalRadial, innerRadius);
+  const ptOuter = ptStart.clone().addScaledVector(normalRadial, pipeRadius);
+  const ptCallout = ptStart.clone().addScaledVector(normalRadial, pipeRadius + 0.42).addScaledVector(sideVec, 0.18);
+
+  const leaderPts = [
+    ptInner.x, ptInner.y, ptInner.z,
+    ptOuter.x, ptOuter.y, ptOuter.z,
+    ptOuter.x, ptOuter.y, ptOuter.z,
+    ptCallout.x, ptCallout.y, ptCallout.z
+  ];
+  const leaderGeom = new THREE.BufferGeometry();
+  leaderGeom.setAttribute('position', new THREE.Float32BufferAttribute(leaderPts, 3));
+  const leaderMat = new THREE.LineBasicMaterial({
+    color: 0x38bdf8,
+    linewidth: 2,
+    transparent: true,
+    opacity: 0.9
+  });
+  const leaderLine = new THREE.LineSegments(leaderGeom, leaderMat);
+  scene3D.add(leaderLine);
+  pipeCaps3D.push(leaderLine);
+
+  // High-DPI 2D Canvas for crisp callout badge sprite
+  const badgeCanvas = document.createElement('canvas');
+  badgeCanvas.width = 512;
+  badgeCanvas.height = 160;
+  const bCtx = badgeCanvas.getContext('2d');
+  bCtx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+  bCtx.roundRect(6, 6, 500, 148, 14);
+  bCtx.fill();
+  bCtx.strokeStyle = '#38bdf8';
+  bCtx.lineWidth = 4;
+  bCtx.stroke();
+  bCtx.fillStyle = '#38bdf8';
+  bCtx.font = 'bold 26px system-ui, -apple-system, sans-serif';
+  bCtx.textAlign = 'center';
+  bCtx.fillText(`BORU ET KALINLIĞI (t)`, 256, 42);
+  bCtx.fillStyle = '#f8fafc';
+  bCtx.font = 'bold 38px system-ui, -apple-system, sans-serif';
+  bCtx.fillText(`t = ${state.wt.toFixed(1)} mm`, 256, 88);
+  const idMM = Math.max(0, state.od - 2 * state.wt);
+  bCtx.fillStyle = '#94a3b8';
+  bCtx.font = '600 22px system-ui, -apple-system, sans-serif';
+  bCtx.fillText(`İç Çap: ${idMM.toFixed(1)} mm · D/t: ${(state.od / state.wt).toFixed(1)}`, 256, 126);
+
+  const badgeTex = new THREE.CanvasTexture(badgeCanvas);
+  const badgeMat = new THREE.SpriteMaterial({
+    map: badgeTex,
+    transparent: true,
+    depthTest: false
+  });
+  const badgeSprite = new THREE.Sprite(badgeMat);
+  badgeSprite.position.copy(ptCallout).addScaledVector(normalRadial, 0.22);
+  badgeSprite.scale.set(1.5, 0.48, 1);
+  scene3D.add(badgeSprite);
+  pipeCaps3D.push(badgeSprite);
   
   // Internal Hydraulic Mandrel Mesh (Placed accurately inside the bent arc)
   if (mandrelShown) {
