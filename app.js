@@ -280,6 +280,7 @@ const dom = {
   btnCamFront: document.getElementById('btnCamFront'),
   btn3dResetCam: document.getElementById('btn3dResetCam'),
   btn3dFullscreen: document.getElementById('btn3dFullscreen'),
+  btn3dSnapshot: document.getElementById('btn3dSnapshot'),
   btn3dToggleMandrel: document.getElementById('btn3dToggleMandrel'),
   btn3dToggleSeam: document.getElementById('btn3dToggleSeam'),
   btn3dPlay: document.getElementById('btn3dPlay'),
@@ -2756,7 +2757,7 @@ function init3DScene() {
   
   // Renderer setup (may throw when WebGL is unavailable)
   try {
-    renderer3D = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer3D = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
   } catch (err) {
     dom.loading3D.innerHTML = '<span>WebGL başlatılamadı — 3D görünüm kullanılamıyor.</span>';
     return;
@@ -2863,6 +2864,17 @@ function handleFullscreenChange() {
 
 document.addEventListener('fullscreenchange', handleFullscreenChange);
 document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+
+function export3DSnapshot() {
+  if (!is3DInitialized || !renderer3D || !scene3D || !camera3D) return;
+  renderer3D.render(scene3D, camera3D);
+  renderer3D.domElement.toBlob((blob) => {
+    if (!blob) return;
+    const safePipeNo = (state.pipeNo || 'Boru').toString().replace(/[^a-zA-Z0-9_\-]/g, '_');
+    const filename = `ColdBend_3D_${safePipeNo}.png`;
+    triggerDownload(blob, filename);
+  }, 'image/png');
+}
 
 function update3DPipe(calc, angleOverrideDeg = null) {
   if (!is3DInitialized) {
@@ -5878,6 +5890,10 @@ function setupEventListeners() {
     dom.btn3dFullscreen.addEventListener('click', toggle3DFullscreen);
   }
 
+  if (dom.btn3dSnapshot) {
+    dom.btn3dSnapshot.addEventListener('click', export3DSnapshot);
+  }
+
   if (dom.container3D) {
     dom.container3D.addEventListener('dblclick', (e) => {
       if (e.target && (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.closest('.controls-3d-overlay') || e.target.closest('.legend-3d-overlay'))) {
@@ -6217,6 +6233,11 @@ function setupEventListeners() {
       if (e.key === 'f' || e.key === 'F') {
         e.preventDefault();
         toggle3DFullscreen();
+        return;
+      }
+      if (e.key === 'p' || e.key === 'P') {
+        e.preventDefault();
+        export3DSnapshot();
         return;
       }
       if (e.key === '1') {
