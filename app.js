@@ -2973,7 +2973,7 @@ function update3DPipe(calc, angleOverrideDeg = null) {
         const d2 = dx * dx + dy * dy + dz * dz;
         if (d2 < best) { best = d2; bx = dx; by = dy; bz = dz; }
       }
-      q = (bx * bendDir.x + by * bendDir.y + bz * bendDir.z) / pipeRadius;
+      q = - (bx * bendDir.x + by * bendDir.y + bz * bendDir.z) / pipeRadius;
       if (q > 1) q = 1;
       else if (q < -1) q = -1;
       q *= m;
@@ -3211,9 +3211,9 @@ function update3DPipe(calc, angleOverrideDeg = null) {
       return pGroup;
     };
 
-    // A. Extrados (Çekme Lif Tepe Noktası)
-    const ptExtSurf = ptMidArc.clone().addScaledVector(bDirVec, pipeRadius);
-    const ptExtBadge = ptExtSurf.clone().addScaledVector(bDirVec, 0.65);
+    // A. Extrados (Çekme Lif Tepe Noktası - Dış Viraj, Çekme Lifleri)
+    const ptExtSurf = ptMidArc.clone().addScaledVector(bDirVec, -pipeRadius);
+    const ptExtBadge = ptExtSurf.clone().addScaledVector(bDirVec, -0.65);
     const extPinGroup = createStressPin(ptExtSurf, ptExtBadge, 0xef4444);
     scene3D.add(extPinGroup);
     pipeCaps3D.push(extPinGroup);
@@ -3226,13 +3226,13 @@ function update3DPipe(calc, angleOverrideDeg = null) {
       'rgba(26, 10, 10, 0.92)',
       '#fca5a5'
     );
-    extSprite.position.copy(ptExtBadge).addScaledVector(bDirVec, 0.22);
+    extSprite.position.copy(ptExtBadge).addScaledVector(bDirVec, -0.22);
     scene3D.add(extSprite);
     pipeCaps3D.push(extSprite);
 
-    // B. İntrados (Basınç Lif Tepe Noktası)
-    const ptIntSurf = ptMidArc.clone().addScaledVector(bDirVec, -pipeRadius);
-    const ptIntBadge = ptIntSurf.clone().addScaledVector(bDirVec, -0.65);
+    // B. İntrados (Basınç Lif Tepe Noktası - İç Viraj, Basma Lifleri)
+    const ptIntSurf = ptMidArc.clone().addScaledVector(bDirVec, pipeRadius);
+    const ptIntBadge = ptIntSurf.clone().addScaledVector(bDirVec, 0.65);
     const intPinGroup = createStressPin(ptIntSurf, ptIntBadge, 0x3b82f6);
     scene3D.add(intPinGroup);
     pipeCaps3D.push(intPinGroup);
@@ -3245,7 +3245,7 @@ function update3DPipe(calc, angleOverrideDeg = null) {
       'rgba(10, 22, 40, 0.92)',
       '#93c5fd'
     );
-    intSprite.position.copy(ptIntBadge).addScaledVector(bDirVec, -0.22);
+    intSprite.position.copy(ptIntBadge).addScaledVector(bDirVec, 0.22);
     scene3D.add(intSprite);
     pipeCaps3D.push(intSprite);
   }
