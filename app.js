@@ -1019,7 +1019,8 @@ function runCalculations() {
     machineClass,
     complianceChecks,
     failedChecks,
-    overallPass
+    overallPass,
+    isOverallCompliant: overallPass
   };
 }
 
@@ -2028,7 +2029,8 @@ function generateDXFContent(calc) {
   textEntity('TITLE_BLOCK', padX, textY(5), rowH * 0.33, `Incelme: %${calc.thinningPercent.toFixed(2)} (t_ext: ${calc.t_extrados.toFixed(2)}mm >= t_min: ${calc.t_min_design.toFixed(2)}mm) [${thinningVerdict}] | Ovallik: %${calc.estimatedOvality.toFixed(2)} (Limit: <=%2.50) [${ovalityVerdict}] | Gerilme: %${calc.combinedStressRatioPercent.toFixed(1)} SMYS [${stressVerdict}]`);
 
   // Row 6: Genel Onay Durumu & Imza
-  const overallText = calc.isOverallCompliant
+  const isApproved = Boolean(calc.overallPass ?? calc.isOverallCompliant);
+  const overallText = isApproved
     ? 'GENEL DURUM: ASME B31.8 / B31.4 VE ISVEREN SARTNAME KOSULLARINA UYGUNDUR (ONAYLANDI)'
     : 'GENEL DURUM: ASME KOD LIMIT ASIMI MEVCUTTUR (REVIZYON GEREKLIDIR)';
   const dateStr = new Date().toLocaleDateString('tr-TR');
