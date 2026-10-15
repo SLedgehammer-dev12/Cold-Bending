@@ -5092,12 +5092,20 @@ function debounce(fn, wait) {
 const scheduleUI = debounce(updateUI, 80);
 const scheduleSave = debounce(saveState, 300);
 
+// Central locale-aware float parser: handles both dot ("14.3") and Turkish decimal comma ("14,3")
+function parseLocaleFloat(v, fallback = null) {
+  if (v === null || v === undefined) return fallback;
+  const s = String(v).trim().replace(',', '.');
+  if (s === '') return fallback;
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 // Central numeric guard: non-finite input falls back, out-of-range input is
 // clamped to the field limits so absurd values (negative wall, zero length)
 // can never flow into the engineering calculations.
 function clampNum(v, min, max, fallback) {
-  // Accept Turkish decimal comma ("14,3") as well as dot
-  const n = parseFloat(String(v).replace(',', '.'));
+  const n = parseLocaleFloat(v, NaN);
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, n));
 }
@@ -5275,6 +5283,10 @@ function restoreState(customData = null) {
   // Restore As-Built Field QC Measurements
   if (data.asBuilt && typeof data.asBuilt === 'object') {
     state.asBuilt = { ...state.asBuilt, ...data.asBuilt };
+    state.asBuilt.measuredAngle = parseLocaleFloat(state.asBuilt.measuredAngle, null);
+    state.asBuilt.measuredWT = parseLocaleFloat(state.asBuilt.measuredWT, null);
+    state.asBuilt.measuredOvality = parseLocaleFloat(state.asBuilt.measuredOvality, null);
+    state.asBuilt.measuredRipple = parseLocaleFloat(state.asBuilt.measuredRipple, 0.0);
     setVal(dom.inpAsBuiltSpool, state.asBuilt.spoolNo || '');
     setVal(dom.inpAsBuiltDate, state.asBuilt.date || '');
     setVal(dom.inpAsBuiltAngle, state.asBuilt.measuredAngle !== null ? state.asBuilt.measuredAngle : '');
@@ -5303,8 +5315,8 @@ function calculateSlopeDeflection() {
 
   if (slopeCalcState.mode === 'percent') {
     const isDegree = dom.selSlopeUnit && dom.selSlopeUnit.value === 'degree';
-    const s1 = parseFloat(dom.inpSlope1 ? dom.inpSlope1.value : '0') || 0;
-    const s2 = parseFloat(dom.inpSlope2 ? dom.inpSlope2.value : '0') || 0;
+    const s1 = parseLocaleFloat(dom.inpSlope1 ? dom.inpSlope1.value : '0', 0);
+    const s2 = parseLocaleFloat(dom.inpSlope2 ? dom.inpSlope2.value : '0', 0);
 
     let a1 = 0, a2 = 0;
     if (isDegree) {
@@ -5328,12 +5340,12 @@ function calculateSlopeDeflection() {
     }
   } else {
     // Mode 2: Elevation & Stations (KP)
-    const kp1 = parseFloat(dom.inpElevKp1 ? dom.inpElevKp1.value : '0') || 0;
-    const z1 = parseFloat(dom.inpElevZ1 ? dom.inpElevZ1.value : '0') || 0;
-    const kp2 = parseFloat(dom.inpElevKp2 ? dom.inpElevKp2.value : '0') || 0;
-    const z2 = parseFloat(dom.inpElevZ2 ? dom.inpElevZ2.value : '0') || 0;
-    const kp3 = parseFloat(dom.inpElevKp3 ? dom.inpElevKp3.value : '0') || 0;
-    const z3 = parseFloat(dom.inpElevZ3 ? dom.inpElevZ3.value : '0') || 0;
+    const kp1 = parseLocaleFloat(dom.inpElevKp1 ? dom.inpElevKp1.value : '0', 0);
+    const z1 = parseLocaleFloat(dom.inpElevZ1 ? dom.inpElevZ1.value : '0', 0);
+    const kp2 = parseLocaleFloat(dom.inpElevKp2 ? dom.inpElevKp2.value : '0', 0);
+    const z2 = parseLocaleFloat(dom.inpElevZ2 ? dom.inpElevZ2.value : '0', 0);
+    const kp3 = parseLocaleFloat(dom.inpElevKp3 ? dom.inpElevKp3.value : '0', 0);
+    const z3 = parseLocaleFloat(dom.inpElevZ3 ? dom.inpElevZ3.value : '0', 0);
 
     const dx1 = kp2 - kp1;
     const dz1 = z2 - z1;
@@ -5739,18 +5751,18 @@ function setupEventListeners() {
   dom.selRadiusMultiplier.addEventListener('change', (e) => {
     if (e.target.value === 'custom') {
       if (dom.groupCustomRadius) dom.groupCustomRadius.style.display = 'block';
-      const customK = dom.inpCustomRadius ? parseFloat(dom.inpCustomRadius.value) : NaN;
+      const customK = dom.inpCustomRadius ? parseLocaleFloat(dom.inpCustomRadius.value, NaN) : NaN;
       state.radiusMultiplier = (Number.isFinite(customK) && customK >= 5 && customK <= 100) ? customK : 40;
     } else {
       if (dom.groupCustomRadius) dom.groupCustomRadius.style.display = 'none';
-      state.radiusMultiplier = parseFloat(e.target.value) || 40;
+      state.radiusMultiplier = parseLocaleFloat(e.target.value, 40) || 40;
     }
     updateUI();
   });
 
   if (dom.inpCustomRadius) {
     dom.inpCustomRadius.addEventListener('input', (e) => {
-      const k = parseFloat(String(e.target.value).replace(',', '.'));
+      const k = parseLocaleFloat(e.target.value, NaN);
       if (Number.isFinite(k) && k >= 5 && k <= 100) {
         state.radiusMultiplier = k;
         updateUI();
@@ -6004,10 +6016,10 @@ function setupEventListeners() {
 
   asBuiltInputs.forEach(({ el, key, isNum }) => {
     if (!el) return;
-    el.addEventListener('input', () => {
+    const handleInput = () => {
       const val = el.value.trim();
       if (isNum) {
-        state.asBuilt[key] = val === '' ? null : parseFloat(val);
+        state.asBuilt[key] = parseLocaleFloat(val, null);
       } else {
         state.asBuilt[key] = val;
       }
@@ -6015,7 +6027,9 @@ function setupEventListeners() {
       updateAsBuiltUI(calc);
       updatePrintableCard(calc);
       scheduleSave();
-    });
+    };
+    el.addEventListener('input', handleInput);
+    el.addEventListener('change', handleInput);
   });
 
   // View reset & toggle labels
