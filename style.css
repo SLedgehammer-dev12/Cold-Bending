@@ -685,6 +685,12 @@ body {
   gap: 10px;
 }
 
+.toolbar-actions-2d {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .toolbar-info {
   font-size: 0.72rem;
   color: var(--text-dim);

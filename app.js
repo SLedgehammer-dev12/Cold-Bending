@@ -250,6 +250,7 @@ const dom = {
   tabAsBuilt: document.getElementById('tabAsBuilt'),
   tab3D: document.getElementById('tab3D'),
   visInfoLabel: document.getElementById('visInfoLabel'),
+  toolbarActions2D: document.getElementById('toolbarActions2D'),
   arrowStartPath: null,
   arrowEndPath: null,
   svgMethod2Group: null,
@@ -5907,6 +5908,7 @@ function setupEventListeners() {
     dom.viewAsBuilt.classList.remove('active');
     dom.view3D.classList.remove('active');
     if (dom.visInfoLabel) dom.visInfoLabel.textContent = 'Şematik Vektör Analizi • Canlı Güncelleme';
+    if (dom.toolbarActions2D) dom.toolbarActions2D.style.display = 'flex';
     if (dom.btnResetView) dom.btnResetView.style.display = '';
     stopBendAnimation(false);
     render2DSketch(runCalculations());
@@ -5923,6 +5925,7 @@ function setupEventListeners() {
     dom.view2D.classList.remove('active');
     dom.view3D.classList.remove('active');
     if (dom.visInfoLabel) dom.visInfoLabel.textContent = '📋 Şantiye As-Built Ölçüm & QC Kabul Paneli';
+    if (dom.toolbarActions2D) dom.toolbarActions2D.style.display = 'none';
     if (dom.btnResetView) dom.btnResetView.style.display = 'none';
     stopBendAnimation(false);
     updateAsBuiltUI(runCalculations());
@@ -5940,7 +5943,8 @@ function setupEventListeners() {
     dom.viewAsBuilt.classList.remove('active');
     init3DScene();
     update3DPipe(runCalculations());
-    if (dom.visInfoLabel) dom.visInfoLabel.textContent = '3D WebGL Modeli • Canlı Güncelleme';
+    if (dom.visInfoLabel) dom.visInfoLabel.textContent = '3D WebGL Modeli • Canlı Güncelleme (F: Tam Ekran • R: 360° Döndür • P: Resim Kaydet)';
+    if (dom.toolbarActions2D) dom.toolbarActions2D.style.display = 'none';
     if (dom.btnResetView) dom.btnResetView.style.display = '';
     if (controls3D && pipeCenter3D) {
       controls3D.target.set(pipeCenter3D.x, pipeCenter3D.y, pipeCenter3D.z);
