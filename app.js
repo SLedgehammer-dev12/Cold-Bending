@@ -283,6 +283,7 @@ const dom = {
   btn3dResetCam: document.getElementById('btn3dResetCam'),
   btn3dFullscreen: document.getElementById('btn3dFullscreen'),
   btn3dSnapshot: document.getElementById('btn3dSnapshot'),
+  btn3dAutoRotate: document.getElementById('btn3dAutoRotate'),
   btn3dToggleMandrel: document.getElementById('btn3dToggleMandrel'),
   btn3dToggleSeam: document.getElementById('btn3dToggleSeam'),
   btn3dPlay: document.getElementById('btn3dPlay'),
@@ -2459,28 +2460,79 @@ function render2DSketchTo(g, calc, isPrintMode = false) {
     }
   }
   
-  // Center of Curvature O & Radial Vector Line
+  // Midpoint of the circular bend arc (bükümlü kısmın tam ortası)
+  const midAngle = thetaRad * 0.5;
+  const midArcX = cx + r_vis * Math.sin(midAngle);
+  const midArcY = cy + r_vis * Math.cos(midAngle);
+
+  // Center of Curvature O & Radial Vector Lines
   const oOnScreen = cx >= -60 && cx <= 1060 && cy >= -60 && cy <= (isPrintMode ? 340 : 610);
-  const gx = cx;
-  const gy = oOnScreen ? cy : y_pc - (isPrintMode ? 90 : 130);
+
+  // Sector boundary rays from O to PC and PT (when center O is on-screen)
+  if (oOnScreen) {
+    const rayPC = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    rayPC.setAttribute('x1', cx);
+    rayPC.setAttribute('y1', cy);
+    rayPC.setAttribute('x2', x_pc);
+    rayPC.setAttribute('y2', y_pc);
+    rayPC.setAttribute('stroke', dimLineColor);
+    rayPC.setAttribute('stroke-width', '1.2');
+    rayPC.setAttribute('stroke-dasharray', '3,3');
+    rayPC.setAttribute('opacity', '0.55');
+    g.appendChild(rayPC);
+
+    const rayPT = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    rayPT.setAttribute('x1', cx);
+    rayPT.setAttribute('y1', cy);
+    rayPT.setAttribute('x2', x_pt);
+    rayPT.setAttribute('y2', y_pt);
+    rayPT.setAttribute('stroke', dimLineColor);
+    rayPT.setAttribute('stroke-width', '1.2');
+    rayPT.setAttribute('stroke-dasharray', '3,3');
+    rayPT.setAttribute('opacity', '0.55');
+    g.appendChild(rayPT);
+  }
+
+  // Primary Radius Vector: From O (or leader start) directly to Arc Midpoint (bükümlü kısmın ortası)
+  let startRadX = cx;
+  let startRadY = cy;
+  if (!oOnScreen) {
+    const leaderLen = Math.min(r_vis, isPrintMode ? 140 : 200);
+    startRadX = midArcX - leaderLen * Math.sin(midAngle);
+    startRadY = midArcY - leaderLen * Math.cos(midAngle);
+  }
+
   const lineRadius = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-  lineRadius.setAttribute('x1', gx);
-  lineRadius.setAttribute('y1', gy);
-  lineRadius.setAttribute('x2', x_pc);
-  lineRadius.setAttribute('y2', y_pc);
-  lineRadius.setAttribute('stroke', dimLineColor);
-  lineRadius.setAttribute('stroke-width', '1.5');
-  lineRadius.setAttribute('stroke-dasharray', '4,4');
+  lineRadius.setAttribute('x1', startRadX);
+  lineRadius.setAttribute('y1', startRadY);
+  lineRadius.setAttribute('x2', midArcX);
+  lineRadius.setAttribute('y2', midArcY);
+  lineRadius.setAttribute('stroke', radiusColor);
+  lineRadius.setAttribute('stroke-width', '1.8');
+  lineRadius.setAttribute('stroke-dasharray', '5,3');
   g.appendChild(lineRadius);
 
+  // Arrowhead touching the arc midpoint
+  const arrowLen = isPrintMode ? 8 : 10;
+  const radAngle = Math.atan2(midArcY - startRadY, midArcX - startRadX);
+  const a1X = midArcX - arrowLen * Math.cos(radAngle - 0.35);
+  const a1Y = midArcY - arrowLen * Math.sin(radAngle - 0.35);
+  const a2X = midArcX - arrowLen * Math.cos(radAngle + 0.35);
+  const a2Y = midArcY - arrowLen * Math.sin(radAngle + 0.35);
+  const arrowPoly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+  arrowPoly.setAttribute('points', `${midArcX},${midArcY} ${a1X},${a1Y} ${a2X},${a2Y}`);
+  arrowPoly.setAttribute('fill', radiusColor);
+  g.appendChild(arrowPoly);
+
+  // Center O Marker
   const centerO = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-  centerO.setAttribute('cx', gx);
-  centerO.setAttribute('cy', gy);
+  centerO.setAttribute('cx', startRadX);
+  centerO.setAttribute('cy', startRadY);
   centerO.setAttribute('r', isPrintMode ? '3.5' : '4.5');
   centerO.setAttribute('fill', '#10b981');
   g.appendChild(centerO);
 
-  drawSvgText(g, clampSvg(gx - 14, 8, 880), clampSvg(gy - 10, 20, isPrintMode ? 310 : 540), oOnScreen ? 'O (Büküm Merkezi)' : `O (R=${r_bend.toFixed(1)}m)`, subTextColor, '10.5px', 'var(--font-mono)');
+  drawSvgText(g, clampSvg(startRadX - 16, 8, 880), clampSvg(startRadY - 10, 20, isPrintMode ? 310 : 540), oOnScreen ? 'O (Büküm Merkezi)' : `O (R=${r_bend.toFixed(1)}m)`, subTextColor, '10.5px', 'var(--font-mono)');
   
   // Dimension Lines and Annotations
   if (state.showDimensions || isPrintMode) {
@@ -2511,8 +2563,10 @@ function render2DSketchTo(g, calc, isPrintMode = false) {
       drawSvgText(g, clampSvg(amx + 14, 8, 860), clampSvg(amy - 12, 20, isPrintMode ? 310 : 540), thetaLabel, arcColor, '11px', 'var(--font-mono)', 'bold');
     }
 
-    // Radius Label
-    drawSvgText(g, clampSvg((gx + x_pc) / 2 + 14, 8, 830), clampSvg((gy + y_pc) / 2, 20, isPrintMode ? 310 : 540), `Rbend = ${calc.r_bend_m.toFixed(1)} m (${state.radiusMultiplier}D)`, radiusColor, '11px', 'var(--font-mono)', 'bold');
+    // Radius Label along the radial vector pointing to arc midpoint
+    const radMidX = (startRadX + midArcX) / 2 + 14;
+    const radMidY = (startRadY + midArcY) / 2;
+    drawSvgText(g, clampSvg(radMidX, 8, 830), clampSvg(radMidY, 20, isPrintMode ? 310 : 540), `Rbend = ${calc.r_bend_m.toFixed(1)} m (${state.radiusMultiplier}D)`, radiusColor, '11px', 'var(--font-mono)', 'bold');
     
     // Extrados Thinning Label
     const midExtAngle = thetaRad * 0.5;
@@ -2863,6 +2917,8 @@ function init3DScene() {
     controls3D.maxDistance = 50;
     controls3D.minDistance = 3;
     controls3D.target.set(0, 0, 0);
+    controls3D.autoRotate = false;
+    controls3D.autoRotateSpeed = 2.0;
 
     // Only allow wheel zoom in 3D canvas when Ctrl or Cmd is held (or pinch-zoom);
     // otherwise allow the mouse roller to scroll the page naturally without trapping the user
@@ -2958,6 +3014,16 @@ function export3DSnapshot() {
     const filename = `ColdBend_3D_${safePipeNo}.png`;
     triggerDownload(blob, filename);
   }, 'image/png');
+}
+
+function toggle3DAutoRotate() {
+  if (!controls3D) return;
+  controls3D.autoRotate = !controls3D.autoRotate;
+  if (dom.btn3dAutoRotate) {
+    dom.btn3dAutoRotate.setAttribute('aria-pressed', String(controls3D.autoRotate));
+    dom.btn3dAutoRotate.classList.toggle('active', controls3D.autoRotate);
+    dom.btn3dAutoRotate.textContent = controls3D.autoRotate ? '⏸ Döndürmeyi Durdur' : '🔄 360° Döndür';
+  }
 }
 
 function update3DPipe(calc, angleOverrideDeg = null) {
@@ -5992,6 +6058,10 @@ function setupEventListeners() {
     dom.btn3dSnapshot.addEventListener('click', export3DSnapshot);
   }
 
+  if (dom.btn3dAutoRotate) {
+    dom.btn3dAutoRotate.addEventListener('click', toggle3DAutoRotate);
+  }
+
   if (dom.container3D) {
     dom.container3D.addEventListener('dblclick', (e) => {
       if (e.target && (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.closest('.controls-3d-overlay') || e.target.closest('.legend-3d-overlay'))) {
@@ -6336,6 +6406,11 @@ function setupEventListeners() {
       if (e.key === 'p' || e.key === 'P') {
         e.preventDefault();
         export3DSnapshot();
+        return;
+      }
+      if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault();
+        toggle3DAutoRotate();
         return;
       }
       if (e.key === '1') {

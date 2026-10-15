@@ -1447,7 +1447,8 @@ body.light-theme .canvas-3d-wrapper:fullscreen {
   letter-spacing: 0.02em;
 }
 
-.btn-cam-preset.active {
+.btn-cam-preset.active,
+.btn-3d-control.active {
   background: #0284c7 !important;
   color: #ffffff !important;
   border-color: #38bdf8 !important;
