@@ -105,7 +105,9 @@
         <select id="selStandard" class="form-select">
           <option value="ASME_B31_8">ASME B31.8 (Md. 841.2.3 - Gaz Boru Hatları)</option>
           <option value="ASME_B31_4">ASME B31.4 (Md. 406.2.1 - Sıvı/Petrol Boru Hatları)</option>
-          <option value="BOTAS_SPEC">İşveren Boru Büküm Şartnamesi (Sıkı)</option>
+          <option value="EN_1594">EN 1594 (Md. 8.4 - Avrupa Gaz İletim Hatları)</option>
+          <option value="CSA_Z662">CSA Z662 (Md. 6.2.3 - Kanada Petrol &amp; Gaz Hatları)</option>
+          <option value="BOTAS_SPEC">İşveren Boru Büküm Şartnamesi (BOTAŞ Sıkı)</option>
           <option value="CUSTOM_SPEC">Özel / Kullanıcı Tanımlı Kriter</option>
         </select>
       </div>
@@ -290,6 +292,7 @@
           <label for="selRadiusMultiplier" class="field-label">Büküm Yarıçapı (R<sub>bend</sub>)</label>
           <select id="selRadiusMultiplier" class="form-select">
             <option value="18">18 D (Küçük Çap)</option>
+            <option value="20">20 D (EN 1594 Küçük Çap)</option>
             <option value="21">21 D</option>
             <option value="24">24 D</option>
             <option value="27">27 D</option>
@@ -770,19 +773,19 @@
                     <tr>
                       <td><strong>Cidar Kalınlığı (t)</strong></td>
                       <td id="asBuiltDevWT">—</td>
-                      <td>t ≥ t<sub>min,des</sub></td>
+                      <td id="asBuiltCritWT">t ≥ t<sub>min,des</sub></td>
                       <td><span class="asbuilt-status-pill neutral" id="asBuiltStatusWT">BEKLENİYOR</span></td>
                     </tr>
                     <tr>
                       <td><strong>Boru Ovalliği</strong></td>
                       <td id="asBuiltDevOvality">—</td>
-                      <td>≤ %2.50</td>
+                      <td id="asBuiltCritOvality">≤ %2.50</td>
                       <td><span class="asbuilt-status-pill neutral" id="asBuiltStatusOvality">BEKLENİYOR</span></td>
                     </tr>
                     <tr>
                       <td><strong>Dalgalanma (Ripple)</strong></td>
                       <td id="asBuiltDevRipple">—</td>
-                      <td>h ≤ %1.0 D</td>
+                      <td id="asBuiltCritRipple">h ≤ %1.0 D</td>
                       <td><span class="asbuilt-status-pill neutral" id="asBuiltStatusRipple">BEKLENİYOR</span></td>
                     </tr>
                   </tbody>
@@ -986,7 +989,7 @@
             </li>
             <li>
               <span>İzin Verilen Azami Ovalite:</span>
-              <strong>%2.50 (ASME / İşveren)</strong>
+              <strong id="matValOvalityLimit">%2.50 (ASME / İşveren)</strong>
             </li>
             <li>
               <span>İç Çap Değişimi (ΔID):</span>
@@ -1389,15 +1392,15 @@
           <td id="prtAsBuiltTargetWT">t<sub>min</sub>: 11,23 mm</td>
           <td id="prtAsBuiltMeasWT">—</td>
           <td id="prtAsBuiltDevWT">—</td>
-          <td>t<sub>meas</sub> ≥ t<sub>min,design</sub></td>
+          <td id="prtAsBuiltCritWT">t<sub>meas</sub> ≥ t<sub>min,design</sub></td>
           <td id="prtAsBuiltStatusWT"><strong>BEKLENİYOR</strong></td>
         </tr>
         <tr>
           <td class="prt-label">Boru Ovalliği:</td>
-          <td>Maks: %2,50</td>
+          <td id="prtAsBuiltTargetOvality">Maks: %2,50</td>
           <td id="prtAsBuiltMeasOvality">—</td>
           <td id="prtAsBuiltDevOvality">—</td>
-          <td>ASME B31.8 / B31.4: ≤ %2,50</td>
+          <td id="prtAsBuiltCritOvality">ASME B31.8 / B31.4: ≤ %2,50</td>
           <td id="prtAsBuiltStatusOvality"><strong>BEKLENİYOR</strong></td>
         </tr>
         <tr>
@@ -1405,7 +1408,7 @@
           <td id="prtAsBuiltTargetRipple">≤ 9,14 mm (%1,0 D)</td>
           <td id="prtAsBuiltMeasRipple">—</td>
           <td id="prtAsBuiltDevRipple">—</td>
-          <td>Md. 841.2.3: h ≤ %1,0 D</td>
+          <td id="prtAsBuiltCritRipple">Md. 841.2.3: h ≤ %1,0 D</td>
           <td id="prtAsBuiltStatusRipple"><strong>BEKLENİYOR</strong></td>
         </tr>
       </tbody>

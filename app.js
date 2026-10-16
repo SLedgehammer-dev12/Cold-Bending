@@ -199,6 +199,7 @@ const dom = {
   badgeThinningMatrix: document.getElementById('badgeThinningMatrix'),
   
   matValOvality: document.getElementById('matValOvality'),
+  matValOvalityLimit: document.getElementById('matValOvalityLimit'),
   matValDeltaID: document.getElementById('matValDeltaID'),
   matValDtoT: document.getElementById('matValDtoT'),
   matValMandrelStatus: document.getElementById('matValMandrelStatus'),
@@ -368,6 +369,9 @@ const dom = {
   asBuiltDevWT: document.getElementById('asBuiltDevWT'),
   asBuiltDevOvality: document.getElementById('asBuiltDevOvality'),
   asBuiltDevRipple: document.getElementById('asBuiltDevRipple'),
+  asBuiltCritWT: document.getElementById('asBuiltCritWT'),
+  asBuiltCritOvality: document.getElementById('asBuiltCritOvality'),
+  asBuiltCritRipple: document.getElementById('asBuiltCritRipple'),
   asBuiltStatusAngle: document.getElementById('asBuiltStatusAngle'),
   asBuiltStatusWT: document.getElementById('asBuiltStatusWT'),
   asBuiltStatusOvality: document.getElementById('asBuiltStatusOvality'),
@@ -384,13 +388,17 @@ const dom = {
   prtAsBuiltTargetWT: document.getElementById('prtAsBuiltTargetWT'),
   prtAsBuiltMeasWT: document.getElementById('prtAsBuiltMeasWT'),
   prtAsBuiltDevWT: document.getElementById('prtAsBuiltDevWT'),
+  prtAsBuiltCritWT: document.getElementById('prtAsBuiltCritWT'),
   prtAsBuiltStatusWT: document.getElementById('prtAsBuiltStatusWT'),
+  prtAsBuiltTargetOvality: document.getElementById('prtAsBuiltTargetOvality'),
   prtAsBuiltMeasOvality: document.getElementById('prtAsBuiltMeasOvality'),
   prtAsBuiltDevOvality: document.getElementById('prtAsBuiltDevOvality'),
+  prtAsBuiltCritOvality: document.getElementById('prtAsBuiltCritOvality'),
   prtAsBuiltStatusOvality: document.getElementById('prtAsBuiltStatusOvality'),
   prtAsBuiltTargetRipple: document.getElementById('prtAsBuiltTargetRipple'),
   prtAsBuiltMeasRipple: document.getElementById('prtAsBuiltMeasRipple'),
   prtAsBuiltDevRipple: document.getElementById('prtAsBuiltDevRipple'),
+  prtAsBuiltCritRipple: document.getElementById('prtAsBuiltCritRipple'),
   prtAsBuiltStatusRipple: document.getElementById('prtAsBuiltStatusRipple'),
   prtAsBuiltMeta: document.getElementById('prtAsBuiltMeta'),
   prtAsBuiltFinalVerdict: document.getElementById('prtAsBuiltFinalVerdict'),
@@ -520,6 +528,58 @@ function getNominalNpsInches(odMm) {
   return Math.round((odMm / 25.4) * 10) / 10;
 }
 
+/**
+ * API 5L Table 11 / BOTAŞ Hat Boruları Teknik Şartnamesi
+ * Boru Üretimi Et Kalınlığı Negatif İmalat Toleransı (Δt_mill)
+ */
+function getPipeMillWallTolerance(tNomMm, seamType) {
+  const t = Math.max(0, Number(tNomMm) || 0);
+  let minusTolMm = 0;
+  let ruleLabel = '';
+
+  if (seamType === 'SMLS') {
+    // Dikişsiz (Seamless) hat boruları (API 5L Tablo 11)
+    if (t <= 4.0) {
+      minusTolMm = 0.50;
+      ruleLabel = '-0.50 mm (SMLS t ≤ 4 mm)';
+    } else if (t < 25.0) {
+      minusTolMm = 0.125 * t;
+      ruleLabel = '-%12.5 t_nom (SMLS 4 < t < 25 mm)';
+    } else {
+      const pct10 = 0.10 * t;
+      if (3.0 >= pct10) {
+        minusTolMm = 3.0;
+        ruleLabel = '-3.00 mm (SMLS t ≥ 25 mm)';
+      } else {
+        minusTolMm = pct10;
+        ruleLabel = '-%10.0 t_nom (SMLS t ≥ 25 mm)';
+      }
+    }
+  } else {
+    // Kaynaklı (SAWH, SAWL, ERW) hat boruları (API 5L Tablo 11 / BOTAŞ)
+    if (t <= 5.0) {
+      minusTolMm = 0.50;
+      ruleLabel = '-0.50 mm (Kaynaklı t ≤ 5 mm)';
+    } else if (t < 15.0) {
+      minusTolMm = 0.10 * t;
+      ruleLabel = '-%10.0 t_nom (Kaynaklı 5 < t < 15 mm)';
+    } else {
+      minusTolMm = 1.50;
+      ruleLabel = '-1.50 mm (Kaynaklı t ≥ 15 mm)';
+    }
+  }
+
+  const minusTolPct = t > 0 ? (minusTolMm / t) * 100 : 0;
+  const tMinMillMm = Math.max(0, t - minusTolMm);
+
+  return {
+    minusTolMm,
+    minusTolPct,
+    tMinMillMm,
+    ruleLabel
+  };
+}
+
 function calculateMinimumBendRadiusMultiplier(standard, odMm) {
   const npsInches = getNominalNpsInches(odMm);
   
@@ -537,6 +597,18 @@ function calculateMinimumBendRadiusMultiplier(standard, odMm) {
     if (npsInches <= 16) return 24;
     if (npsInches <= 18) return 27;
     return 30;
+  } else if (standard === 'EN_1594') {
+    // EN 1594 Md. 8.4 / EN 14161 (Avrupa Gaz İletim Hatları: DN <= 300: 20D, DN <= 600: 30D, DN > 600: 40D)
+    if (npsInches <= 12) return 20;
+    if (npsInches <= 24) return 30;
+    return 40;
+  } else if (standard === 'CSA_Z662') {
+    // CSA Z662 Clause 6.2.3 Table 6.1 (Kanada Boru Hattı Standardı)
+    if (npsInches <= 12) return 18;
+    if (npsInches <= 14) return 21;
+    if (npsInches <= 16) return 24;
+    if (npsInches <= 18) return 27;
+    return 30;
   } else if (standard === 'BOTAS_SPEC') {
     // Employer strict specification (NPS <= 12: 18D, NPS <= 16: 24D, NPS <= 24: 30D, > 24: 40D)
     if (npsInches <= 12) return 18;
@@ -545,6 +617,116 @@ function calculateMinimumBendRadiusMultiplier(standard, odMm) {
     return 40; // NPS > 24" (e.g., 28", 30", 36", 48", 56")
   }
   return 30;
+}
+
+/**
+ * Seçilen Referans Mühendislik Standardına Göre Kabul Kriterleri Matrisi
+ */
+function getStandardCriteria(standard, odMm, tNomMm, seamType) {
+  const npsInches = getNominalNpsInches(odMm);
+  const minMult = calculateMinimumBendRadiusMultiplier(standard, odMm);
+  const millTol = getPipeMillWallTolerance(tNomMm, seamType);
+
+  // Default ASME Method 2 deflection limit (deg / D)
+  let asmeM2 = 1.9;
+  if (npsInches <= 12) asmeM2 = 3.2;
+  else if (npsInches <= 14) asmeM2 = 2.7;
+  else if (npsInches <= 16) asmeM2 = 2.4;
+  else if (npsInches <= 18) asmeM2 = 2.1;
+
+  if (standard === 'BOTAS_SPEC') {
+    const botasM2 = Number(((180 / Math.PI) / minMult).toFixed(2));
+    return {
+      code: 'BOTAS_SPEC',
+      badgeName: 'BOTAŞ Şartnamesi (Sıkı)',
+      shortRef: 'BOTAŞ / API 5L Tablo 11',
+      minMult,
+      maxAllowOvality: 2.00,
+      ovalityRefText: '%2.00 (BOTAŞ Sıkı Kriter)',
+      maxAllowRipplePct: 0.5,
+      rippleRefText: '%0.5 D (BOTAŞ Sıkı Kriter)',
+      method2Limit: Math.min(asmeM2, botasM2),
+      method2RefText: 'BOTAŞ Sıkı R_min Sınırı',
+      enforceMillTolThinning: true,
+      millTol
+    };
+  } else if (standard === 'EN_1594') {
+    const enM2 = Number(((180 / Math.PI) / minMult).toFixed(2));
+    return {
+      code: 'EN_1594',
+      badgeName: 'EN 1594 (Md. 8.4 Avrupa)',
+      shortRef: 'EN 1594 Md. 8.4',
+      minMult,
+      maxAllowOvality: 2.00,
+      ovalityRefText: '%2.00 (EN 1594 Md. 8.4)',
+      maxAllowRipplePct: 0.5,
+      rippleRefText: '%0.5 D (EN 1594 Md. 8.4)',
+      method2Limit: enM2,
+      method2RefText: 'EN 1594 Md. 8.4',
+      enforceMillTolThinning: false,
+      millTol
+    };
+  } else if (standard === 'CSA_Z662') {
+    return {
+      code: 'CSA_Z662',
+      badgeName: 'CSA Z662 (Md. 6.2.3 Kanada)',
+      shortRef: 'CSA Z662 Tablo 6.1',
+      minMult,
+      maxAllowOvality: 2.50,
+      ovalityRefText: '%2.50 (CSA Z662 Md. 6.2.3)',
+      maxAllowRipplePct: 1.0,
+      rippleRefText: '%1.0 D (CSA Z662 Md. 6.2.3)',
+      method2Limit: asmeM2,
+      method2RefText: 'CSA Z662 Tablo 6.1',
+      enforceMillTolThinning: false,
+      millTol
+    };
+  } else if (standard === 'ASME_B31_4') {
+    return {
+      code: 'ASME_B31_4',
+      badgeName: 'ASME B31.4 (Md. 406.2.1)',
+      shortRef: 'ASME B31.4 Md. 406.2.1',
+      minMult,
+      maxAllowOvality: 2.50,
+      ovalityRefText: '%2.50 (ASME B31.4)',
+      maxAllowRipplePct: 1.0,
+      rippleRefText: '%1.0 D (ASME B31.4)',
+      method2Limit: asmeM2,
+      method2RefText: 'Md. 406.2.1',
+      enforceMillTolThinning: false,
+      millTol
+    };
+  } else if (standard === 'CUSTOM_SPEC') {
+    return {
+      code: 'CUSTOM_SPEC',
+      badgeName: 'Özel Şartname',
+      shortRef: 'Özel / Kullanıcı Kriteri',
+      minMult,
+      maxAllowOvality: 2.50,
+      ovalityRefText: '%2.50 (Özel / ASME)',
+      maxAllowRipplePct: 1.0,
+      rippleRefText: '%1.0 D (Özel / ASME)',
+      method2Limit: asmeM2,
+      method2RefText: 'Tablo 841.2.3-1',
+      enforceMillTolThinning: false,
+      millTol
+    };
+  }
+  // Default: ASME_B31_8
+  return {
+    code: 'ASME_B31_8',
+    badgeName: 'ASME B31.8 (Md. 841.2.3)',
+    shortRef: 'ASME B31.8 Md. 841.2.3',
+    minMult,
+    maxAllowOvality: 2.50,
+    ovalityRefText: '%2.50 (ASME B31.8)',
+    maxAllowRipplePct: 1.0,
+    rippleRefText: '%1.0 D (Tablo 841.2.3-1)',
+    method2Limit: asmeM2,
+    method2RefText: 'Tablo 841.2.3-1',
+    enforceMillTolThinning: false,
+    millTol
+  };
 }
 
 /**
@@ -738,9 +920,19 @@ function runCalculations() {
   const E_weld = 1.0; // SAW / HFW high quality
   const T_temp = getTemperatureDeratingFactor(state.designTemp);
   const t_min_design = (P_mpa * D) / (2 * S_mpa * F * E_weld * T_temp) + state.ca;
-  const isWallThinningSafe = t_extrados >= t_min_design;
-  const wallMarginMm = t_extrados - t_min_design;
-  const wallMarginPercent = (wallMarginMm / t_min_design) * 100;
+
+  // Standard-specific acceptance criteria & API 5L Table 11 pipe mill wall tolerance
+  const stdCriteria = getStandardCriteria(state.standard, state.od, state.t_nom, state.seamType);
+  const millTol = stdCriteria.millTol;
+  const isMillTolSafe = (delta_t_thin <= millTol.minusTolMm) && (t_extrados >= (t_min_design + millTol.minusTolMm));
+  const t_min_required = stdCriteria.enforceMillTolThinning
+    ? (t_min_design + millTol.minusTolMm)
+    : t_min_design;
+  const isWallThinningSafe = stdCriteria.enforceMillTolThinning
+    ? isMillTolSafe
+    : (t_extrados >= t_min_design);
+  const wallMarginMm = t_extrados - t_min_required;
+  const wallMarginPercent = (wallMarginMm / Math.max(1e-9, t_min_required)) * 100;
   
   // Combined Stress & Von Mises Analysis (ASME B31.8 Section 833 & ASME B31.4 Section 402.3)
   const hoopStressMpa = (P_mpa * D) / (2 * Math.max(1, t_extrados));
@@ -777,7 +969,8 @@ function runCalculations() {
   if (state.useMandrel) {
     estimatedOvality = Math.min(estimatedOvality * 0.32, 1.15);
   }
-  const isOvalityCompliant = estimatedOvality <= 2.50; // ASME ILI Pig passage limit (<= 2.5%)
+  const maxAllowOvality = stdCriteria.maxAllowOvality;
+  const isOvalityCompliant = estimatedOvality <= maxAllowOvality;
   const deltaID_mm = (estimatedOvality / 100) * (D - 2 * state.t_nom);
   
   // Springback (Elastik Geri Yaylanma) Calculation
@@ -842,21 +1035,14 @@ function runCalculations() {
   const netAnglePerStep = state.targetAngle / numPulls;
   const isPullAngleCompliant = pullAnglePerStep <= (maxAllowPullAngle + 0.05);
   
-  // --- ASME B31.8 Tablo 841.2.3-1 Yöntem 2 (Deflection Rate per OD) ---
-  const npsInches = getNominalNpsInches(state.od);
-  let asmeMethod2Limit = 1.9; // NPS 20 and larger
-  if (npsInches <= 12) asmeMethod2Limit = 3.2;
-  else if (npsInches <= 14) asmeMethod2Limit = 2.7;
-  else if (npsInches <= 16) asmeMethod2Limit = 2.4;
-  else if (npsInches <= 18) asmeMethod2Limit = 2.1;
-  
+  // --- Birim Çap Başına Sapma Açısı (Yöntem 2 / Deflection Rate per OD) ---
+  const asmeMethod2Limit = stdCriteria.method2Limit;
   const actualDeflectionRatePerOD = (odM / r_bend_m) * (180 / Math.PI);
   const actualDeflectionRatePerMeter = (1.0 / r_bend_m) * (180 / Math.PI);
   const isMethod2Compliant = actualDeflectionRatePerOD <= (asmeMethod2Limit + 0.05);
 
-  // --- ASME B31.8 Md. 841.2.3(a)(7) Ondülasyon (Ripple) Hesabı ---
-  // Max allowable peak-to-valley ripple height is 1.0% of OD:
-  const maxAllowRippleMm = 0.01 * state.od;
+  // --- Ondülasyon (Ripple) Hesabı (ASME B31.8 / EN 1594 / CSA Z662 / BOTAŞ) ---
+  const maxAllowRippleMm = (stdCriteria.maxAllowRipplePct / 100) * state.od;
   // Estimated ripple: with mandrel ~0.2% D, without mandrel on thin pipe ~1.4% D
   const estimatedRippleMm = state.useMandrel ? (0.002 * state.od) : (D_to_t > 45 ? 0.014 * state.od : 0.0055 * state.od);
   const isRippleCompliant = estimatedRippleMm <= maxAllowRippleMm;
@@ -937,6 +1123,11 @@ function runCalculations() {
   const overallPass = failedChecks.length === 0;
   
   return {
+    stdCriteria,
+    millTol,
+    isMillTolSafe,
+    t_min_required,
+    maxAllowOvality,
     minMult,
     r_min_m,
     r_bend_m,
@@ -1040,15 +1231,7 @@ function updateUI() {
     const hasStd = [...dom.selStandard.options].some(o => o.value === state.standard);
     if (hasStd) dom.selStandard.value = state.standard;
   }
-  if (state.standard === 'ASME_B31_8') {
-    dom.standardDisplayBadge.textContent = 'ASME B31.8 (Md. 841.2.3)';
-  } else if (state.standard === 'ASME_B31_4') {
-    dom.standardDisplayBadge.textContent = 'ASME B31.4 (Md. 406.2.1)';
-  } else if (state.standard === 'BOTAS_SPEC') {
-    dom.standardDisplayBadge.textContent = 'İşveren Kriteri';
-  } else {
-    dom.standardDisplayBadge.textContent = 'Özel Şartname';
-  }
+  dom.standardDisplayBadge.textContent = calc.stdCriteria.badgeName;
   
   // Radius calculation display
   dom.inpCalculatedRadius.value = `${calc.r_bend_m.toFixed(2)} m (${state.radiusMultiplier} D)`;
@@ -1100,11 +1283,11 @@ function updateUI() {
   if (calc.isRadiusCompliant) {
     dom.kpiBadgeRmin.textContent = 'UYGUN';
     dom.kpiBadgeRmin.className = 'status-indicator pass';
-    dom.kpiDescRmin.textContent = `Seçilen ${state.radiusMultiplier}D ≥ ${calc.minMult}D limitini karşılıyor.`;
+    dom.kpiDescRmin.textContent = `Seçilen ${state.radiusMultiplier}D ≥ ${calc.minMult}D (${calc.stdCriteria.shortRef}) limitini karşılıyor.`;
   } else {
     dom.kpiBadgeRmin.textContent = 'RİSKLİ / YETERSİZ';
     dom.kpiBadgeRmin.className = 'status-indicator fail';
-    dom.kpiDescRmin.textContent = `Seçilen ${state.radiusMultiplier}D < ${calc.minMult}D limitinin altında!`;
+    dom.kpiDescRmin.textContent = `Seçilen ${state.radiusMultiplier}D < ${calc.minMult}D (${calc.stdCriteria.shortRef}) limitinin altında!`;
   }
   
   // KPI 2: Theta Max (hedef + makine açısı yay uyumu birlikte)
@@ -1130,25 +1313,30 @@ function updateUI() {
   // KPI 3: Wall Thinning
   dom.kpiValThinning.innerHTML = `${calc.delta_t_thin.toFixed(2)} mm <span class="kpi-sub">(%${calc.thinningPercent.toFixed(2)})</span>`;
   if (calc.isWallThinningSafe) {
-    dom.kpiBadgeThin.textContent = 'GÜVENLİ';
+    dom.kpiBadgeThin.textContent = calc.stdCriteria.enforceMillTolThinning ? 'BOTAŞ / API 5L UYGUN' : 'GÜVENLİ';
     dom.kpiBadgeThin.className = 'status-indicator pass';
-    dom.kpiDescThin.textContent = `Kalan: ${calc.t_extrados.toFixed(2)} mm ≥ t_min: ${calc.t_min_design.toFixed(2)} mm`;
+    dom.kpiDescThin.textContent = calc.stdCriteria.enforceMillTolThinning
+      ? `Kalan: ${calc.t_extrados.toFixed(2)} mm ≥ t_min+Δt_mill: ${calc.t_min_required.toFixed(2)} mm (Üretim Tol: -${calc.millTol.minusTolMm.toFixed(2)} mm)`
+      : `Kalan: ${calc.t_extrados.toFixed(2)} mm ≥ t_min: ${calc.t_min_design.toFixed(2)} mm`;
   } else {
-    dom.kpiBadgeThin.textContent = 'RİSKLİ (t < t_min)';
+    dom.kpiBadgeThin.textContent = calc.stdCriteria.enforceMillTolThinning ? 'BOTAŞ TOLERANS AŞIMI' : 'RİSKLİ (t < t_min)';
     dom.kpiBadgeThin.className = 'status-indicator fail';
-    dom.kpiDescThin.textContent = `Kalan cidar (${calc.t_extrados.toFixed(2)}mm), t_min (${calc.t_min_design.toFixed(2)}mm) altına iniyor!`;
+    dom.kpiDescThin.textContent = calc.stdCriteria.enforceMillTolThinning
+      ? `Kalan (${calc.t_extrados.toFixed(2)}mm) < t_min+Δt_mill (${calc.t_min_required.toFixed(2)}mm) [API 5L Tol: -${calc.millTol.minusTolMm.toFixed(2)}mm]!`
+      : `Kalan cidar (${calc.t_extrados.toFixed(2)}mm), t_min (${calc.t_min_design.toFixed(2)}mm) altına iniyor!`;
   }
   
   // KPI 4: Ovality
+  const ovLimitStr = calc.maxAllowOvality.toFixed(1);
   dom.kpiValOvality.textContent = `%${calc.estimatedOvality.toFixed(2)}`;
   if (calc.isOvalityCompliant) {
-    dom.kpiBadgeOvality.textContent = 'ILI UYGUN (≤ %2.5)';
+    dom.kpiBadgeOvality.textContent = `ILI UYGUN (≤ %${ovLimitStr})`;
     dom.kpiBadgeOvality.className = 'status-indicator pass';
-    dom.kpiDescOvality.textContent = 'Akıllı pig (ILI) serbest geçiş kriteri sağlandı.';
+    dom.kpiDescOvality.textContent = `Akıllı pig (ILI) geçiş kriteri (≤ %${calc.maxAllowOvality.toFixed(2)}) sağlandı.`;
   } else {
-    dom.kpiBadgeOvality.textContent = 'PİG RİSKİ (> %2.5)';
+    dom.kpiBadgeOvality.textContent = `PİG RİSKİ (> %${ovLimitStr})`;
     dom.kpiBadgeOvality.className = 'status-indicator fail';
-    dom.kpiDescOvality.textContent = 'Aşırı ovalleşme! Akıllı pig sıkışma tehlikesi var.';
+    dom.kpiDescOvality.textContent = `Ovalleşme %${calc.maxAllowOvality.toFixed(2)} (${calc.stdCriteria.shortRef}) sınırını aşıyor!`;
   }
   
   // KPI 5: Springback & Machine Angle
@@ -1156,11 +1344,17 @@ function updateUI() {
   dom.kpiDescSpringback.textContent = `Hedef: ${state.targetAngle.toFixed(2)}° + Geri Yaylanma: ${calc.springbackDeg.toFixed(2)}°`;
   
   // Verification Matrix Card Updates
-  dom.matValTnom.textContent = `${state.t_nom.toFixed(2)} mm`;
-  dom.matValDeltaThin.textContent = `${calc.delta_t_thin.toFixed(2)} mm (%${calc.thinningPercent.toFixed(2)})`;
+  dom.matValTnom.textContent = calc.stdCriteria.enforceMillTolThinning
+    ? `${state.t_nom.toFixed(2)} mm (API 5L Tol: -${calc.millTol.minusTolMm.toFixed(2)} mm)`
+    : `${state.t_nom.toFixed(2)} mm`;
+  dom.matValDeltaThin.textContent = calc.stdCriteria.enforceMillTolThinning
+    ? `${calc.delta_t_thin.toFixed(2)} mm (%${calc.thinningPercent.toFixed(2)}) [Limit ≤ ${calc.millTol.minusTolMm.toFixed(2)} mm]`
+    : `${calc.delta_t_thin.toFixed(2)} mm (%${calc.thinningPercent.toFixed(2)})`;
   dom.matValTextrados.textContent = `${calc.t_extrados.toFixed(2)} mm`;
   dom.matValTextrados.className = calc.isWallThinningSafe ? 'text-success' : 'text-danger';
-  dom.matValTminDesign.textContent = `${calc.t_min_design.toFixed(2)} mm`;
+  dom.matValTminDesign.textContent = calc.stdCriteria.enforceMillTolThinning
+    ? `${calc.t_min_design.toFixed(2)} mm (Tol. Dahil Gerekli: ${calc.t_min_required.toFixed(2)} mm)`
+    : `${calc.t_min_design.toFixed(2)} mm`;
   dom.matValMargin.textContent = `${calc.wallMarginMm >= 0 ? '+' : ''}${calc.wallMarginMm.toFixed(2)} mm (%${calc.wallMarginPercent.toFixed(1)})`;
   dom.matValMargin.className = calc.wallMarginMm >= 0 ? 'text-success' : 'text-danger';
   dom.badgeThinningMatrix.textContent = calc.isWallThinningSafe ? 'PASS' : 'FAIL';
@@ -1168,6 +1362,9 @@ function updateUI() {
   
   // Ovality Matrix
   dom.matValOvality.textContent = `%${calc.estimatedOvality.toFixed(2)}`;
+  if (dom.matValOvalityLimit) {
+    dom.matValOvalityLimit.textContent = calc.stdCriteria.ovalityRefText;
+  }
   dom.matValDeltaID.textContent = `~${calc.deltaID_mm.toFixed(1)} mm`;
   dom.matValDtoT.textContent = `${calc.D_to_t.toFixed(1)} (${calc.D_to_t > 30 ? 'Mandrel Zorunlu' : 'Standart'})`;
   if (state.useMandrel) {
@@ -1208,14 +1405,14 @@ function updateUI() {
     dom.badgeSeamMatrix.className = 'badge-pill fail';
   }
   
-  // ASME B31.8 Md. 841.2.3 Ripple & Method 2 Rate Matrix
+  // Ripple & Method 2 Rate Matrix
   if (dom.matValDeflectionRate) {
     dom.matValDeflectionRate.textContent = `${calc.actualDeflectionRatePerOD.toFixed(2)}° / D`;
-    dom.matValDeflectionLimit.textContent = `≤ ${calc.asmeMethod2Limit.toFixed(1)}° / D (Tablo 841.2.3-1)`;
+    dom.matValDeflectionLimit.textContent = `≤ ${calc.asmeMethod2Limit.toFixed(2)}° / D (${calc.stdCriteria.method2RefText})`;
     dom.matValRatePerMeter.textContent = `~${calc.actualDeflectionRatePerMeter.toFixed(2)}° / m`;
     dom.matValRippleHeight.textContent = `~${calc.estimatedRippleMm.toFixed(1)} mm`;
     dom.matValRippleHeight.className = calc.isRippleCompliant ? 'text-success' : 'text-danger';
-    dom.matValRippleLimit.textContent = `≤ ${calc.maxAllowRippleMm.toFixed(2)} mm (%1.0 D)`;
+    dom.matValRippleLimit.textContent = `≤ ${calc.maxAllowRippleMm.toFixed(2)} mm (${calc.stdCriteria.rippleRefText})`;
     const isMatrix4Pass = calc.isMethod2Compliant && calc.isRippleCompliant;
     dom.badgeRippleMatrix.textContent = isMatrix4Pass ? 'PASS' : 'FAIL';
     dom.badgeRippleMatrix.className = `badge-pill ${isMatrix4Pass ? 'pass' : 'fail'}`;
@@ -1507,9 +1704,12 @@ function exportPullsToCSV(calc) {
   rows.push(['Büküm Başlangıcı (PC)', `${calc.pullStartM.toFixed(3)} m`, '', 'Büküm Bitişi (PT)', `${calc.pullEndM.toFixed(3)} m`, '', '', ''].join(';'));
   rows.push(['Toplam Paso Sayısı', `${calc.numPulls}`, '', 'Paso Başı İlerleme', `${(calc.pullStepPitch * 1000).toFixed(0)} mm`, '', '', ''].join(';'));
   rows.push(['İç Mandrel Durumu', state.useMandrel ? 'Kilitli (Mandrel Devrede)' : 'Mandrelsiz Pres', '', 'Tasarım Basıncı / Sıcaklık', `${state.designPressure} bar / ${state.designTemp}°C (F=${state.designFactor}, T=${calc.T_temp.toFixed(3)})`, '', '', ''].join(';'));
-  rows.push(['Cidar İncelmesi', `%${calc.thinningPercent.toFixed(2)}`, '', 'Kalan Et Kalınlığı', `${calc.t_extrados.toFixed(2)} mm (Min: ${calc.t_min_design.toFixed(2)} mm)`, '', '', ''].join(';'));
-  rows.push(['Ovalleşme', `%${calc.estimatedOvality.toFixed(2)} (Limit: ≤ 2.50%)`, '', 'Ondülasyon (Ripple)', `${calc.estimatedRippleMm.toFixed(2)} mm (Limit: ≤ ${calc.maxAllowRippleMm.toFixed(2)} mm)`, '', '', ''].join(';'));
-  rows.push(['Birim Çap Başına Açı', `${calc.actualDeflectionRatePerOD.toFixed(2)}°/D (Limit: ≤ ${calc.asmeMethod2Limit.toFixed(1)}°/D)`, '', 'Alın Kaynağı', calc.girthWeldBadge || 'YOK', '', '', ''].join(';'));
+  const csvMinWallNote = calc.stdCriteria.enforceMillTolThinning
+    ? `${calc.t_extrados.toFixed(2)} mm (Min Tasarım: ${calc.t_min_design.toFixed(2)} mm, API 5L Üretim Tol: -${calc.millTol.minusTolMm.toFixed(2)} mm, Gerekli: ${calc.t_min_required.toFixed(2)} mm)`
+    : `${calc.t_extrados.toFixed(2)} mm (Min: ${calc.t_min_design.toFixed(2)} mm)`;
+  rows.push(['Cidar İncelmesi', `%${calc.thinningPercent.toFixed(2)} (${calc.delta_t_thin.toFixed(2)} mm)`, '', 'Kalan Et Kalınlığı', csvMinWallNote, '', '', ''].join(';'));
+  rows.push(['Ovalleşme', `%${calc.estimatedOvality.toFixed(2)} (Limit: ≤ ${calc.maxAllowOvality.toFixed(2)}%)`, '', 'Ondülasyon (Ripple)', `${calc.estimatedRippleMm.toFixed(2)} mm (Limit: ≤ ${calc.maxAllowRippleMm.toFixed(2)} mm / %${calc.stdCriteria.maxAllowRipplePct.toFixed(1)} D)`, '', '', ''].join(';'));
+  rows.push(['Birim Çap Başına Açı', `${calc.actualDeflectionRatePerOD.toFixed(2)}°/D (Limit: ≤ ${calc.asmeMethod2Limit.toFixed(2)}°/D)`, '', 'Alın Kaynağı', calc.girthWeldBadge || 'YOK', '', '', ''].join(';'));
   rows.push(['Bileşik Gerilme (Von Mises)', `${calc.vonMisesStressMpa.toFixed(1)} MPa (Limit: ≤ ${calc.allowableCombinedStressMpa.toFixed(1)} MPa)`, '', 'Gerilme Kullanım Oranı', `%${calc.combinedStressRatioPercent.toFixed(1)} (${calc.isCombinedStressCompliant ? 'KABUL' : 'RET'})`, '', '', ''].join(';'));
   rows.push(['Plastik Moment (Mp)', `${calc.plasticMomentKnm.toFixed(1)} kNm`, '', 'Tahmini Ram Kuvveti (Fram)', `${calc.ramForceKn.toFixed(0)} kN (~${calc.ramForceTon.toFixed(1)} Ton)`, '', '', ''].join(';'));
   rows.push(['Önerilen Büküm Makinesi', `${calc.machineClass.modelName} (%${calc.machineClass.utilPercent} Kullanım - ${calc.machineClass.isSufficient ? 'KABUL' : 'RET'})`, '', 'Kalıp Mesnet Açıklığı', `${calc.dieSupportSpanM.toFixed(2)} m (~2.5D)`, '', '', ''].join(';'));
@@ -1640,8 +1840,11 @@ function exportPullsToJSON(calc) {
       wallThinningPercent: Number(calc.thinningPercent.toFixed(2)),
       remainingWallMm: Number(calc.t_extrados.toFixed(2)),
       minRequiredWallMm: Number(calc.t_min_design.toFixed(2)),
+      pipeMillMinusToleranceMm: Number(calc.millTol.minusTolMm.toFixed(2)),
+      pipeMillMinWallMm: Number(calc.millTol.tMinMillMm.toFixed(2)),
+      effectiveRequiredWallMm: Number(calc.t_min_required.toFixed(2)),
       estimatedOvalityPercent: Number(calc.estimatedOvality.toFixed(2)),
-      ovalityLimitPercent: 2.50,
+      ovalityLimitPercent: calc.maxAllowOvality,
       estimatedRippleMm: Number(calc.estimatedRippleMm.toFixed(2)),
       maxAllowRippleMm: Number(calc.maxAllowRippleMm.toFixed(2)),
       actualDeflectionRatePerOD: Number(calc.actualDeflectionRatePerOD.toFixed(2)),
@@ -2022,17 +2225,21 @@ function generateDXFContent(calc) {
   // Row 4: Tegetler ve Pasolar
   textEntity('TITLE_BLOCK', padX, textY(4), rowH * 0.34, `On Teget Lt1: ${state.tangent1.toFixed(3)} m | Arka Teget Lt2: ${calc.l_t2_actual.toFixed(3)} m | Bukum Yay Boyu: ${calc.l_bent_m.toFixed(3)} m | Toplam ${calc.numPulls} Paso (${(calc.pullStepPitch * 1000).toFixed(0)} mm/Paso)`);
 
-  // Row 5: ASME Kontrol Sonuclari
+  // Row 5: Standart Kontrol Sonuclari
   const thinningVerdict = calc.isWallThinningSafe ? 'UYGUN [PASS]' : 'UYGUN DEGIL [FAIL]';
   const ovalityVerdict = calc.isOvalityCompliant ? 'UYGUN [PASS]' : 'ASIM [FAIL]';
   const stressVerdict = calc.isCombinedStressCompliant ? 'UYGUN [PASS]' : 'ASIM [FAIL]';
-  textEntity('TITLE_BLOCK', padX, textY(5), rowH * 0.33, `Incelme: %${calc.thinningPercent.toFixed(2)} (t_ext: ${calc.t_extrados.toFixed(2)}mm >= t_min: ${calc.t_min_design.toFixed(2)}mm) [${thinningVerdict}] | Ovallik: %${calc.estimatedOvality.toFixed(2)} (Limit: <=%2.50) [${ovalityVerdict}] | Gerilme: %${calc.combinedStressRatioPercent.toFixed(1)} SMYS [${stressVerdict}]`);
+  const dxfTminStr = calc.stdCriteria && calc.stdCriteria.enforceMillTolThinning
+    ? `t_min+tol: ${calc.t_min_required.toFixed(2)}mm`
+    : `t_min: ${calc.t_min_design.toFixed(2)}mm`;
+  const dxfOvLim = (calc.maxAllowOvality || 2.50).toFixed(2);
+  textEntity('TITLE_BLOCK', padX, textY(5), rowH * 0.33, `Incelme: %${calc.thinningPercent.toFixed(2)} (t_ext: ${calc.t_extrados.toFixed(2)}mm >= ${dxfTminStr}) [${thinningVerdict}] | Ovallik: %${calc.estimatedOvality.toFixed(2)} (Limit: <=%${dxfOvLim}) [${ovalityVerdict}] | Gerilme: %${calc.combinedStressRatioPercent.toFixed(1)} SMYS [${stressVerdict}]`);
 
   // Row 6: Genel Onay Durumu & Imza
   const isApproved = Boolean(calc.overallPass ?? calc.isOverallCompliant);
   const overallText = isApproved
-    ? 'GENEL DURUM: ASME B31.8 / B31.4 VE ISVEREN SARTNAME KOSULLARINA UYGUNDUR (ONAYLANDI)'
-    : 'GENEL DURUM: ASME KOD LIMIT ASIMI MEVCUTTUR (REVIZYON GEREKLIDIR)';
+    ? 'GENEL DURUM: REFERANS STANDART VE ISVEREN SARTNAME KOSULLARINA UYGUNDUR (ONAYLANDI)'
+    : 'GENEL DURUM: STANDART / SARTNAME LIMIT ASIMI MEVCUTTUR (REVIZYON GEREKLIDIR)';
   const dateStr = new Date().toLocaleDateString('tr-TR');
   textEntity('TITLE_BLOCK', padX, textY(6), rowH * 0.34, `${overallText} | Tarih: ${dateStr} | Versiyon: ColdBend Pro v${APP_VERSION}`);
   
@@ -4613,10 +4820,15 @@ function stopBendAnimation(restoreStatic, keepFinal) {
    ========================================================================== */
 
 function calculateAsBuiltEvaluation(calc) {
+  const stdCriteria = (calc && calc.stdCriteria) || getStandardCriteria(state.standard, state.od, state.t_nom, state.seamType);
+  const millTol = (calc && calc.millTol) || stdCriteria.millTol;
   const targetAngle = state.targetAngle || 0;
-  const t_min = calc.t_min_design || 0;
-  const maxAllowOvality = 2.50; // ASME limit %2.5
-  const maxAllowRipple = calc.maxAllowRippleMm || (state.od * 0.01);
+  const t_min_design = calc.t_min_design || 0;
+  const t_min = stdCriteria.enforceMillTolThinning
+    ? Math.max(t_min_design, millTol.tMinMillMm)
+    : t_min_design;
+  const maxAllowOvality = calc.maxAllowOvality || stdCriteria.maxAllowOvality || 2.50;
+  const maxAllowRipple = calc.maxAllowRippleMm || ((stdCriteria.maxAllowRipplePct / 100) * state.od);
 
   const measAngle = state.asBuilt.measuredAngle;
   const measWT = state.asBuilt.measuredWT;
@@ -4665,7 +4877,7 @@ function calculateAsBuiltEvaluation(calc) {
 
   let overallStatus = 'neutral';
   let verdictLabel = 'ÖLÇÜM GİRİŞİ BEKLENİYOR';
-  let summaryText = 'Saha büküm ölçümleri girildiğinde ASME B31.8 / B31.4 tolerans tahkiki otomatik gerçekleşecektir.';
+  let summaryText = `Saha büküm ölçümleri girildiğinde ${stdCriteria.badgeName} tolerans tahkiki otomatik gerçekleşecektir.`;
 
   if (hasAnyInput) {
     if (angleStatus === 'fail' || wtStatus === 'fail' || ovalityStatus === 'fail' || rippleStatus === 'fail') {
@@ -4674,7 +4886,7 @@ function calculateAsBuiltEvaluation(calc) {
       const fails = [];
       if (angleStatus === 'fail') fails.push(`Açı sapması (${angleDev >= 0 ? '+' : ''}${angleDev.toFixed(2)}° > ±0.50°)`);
       if (wtStatus === 'fail') fails.push(`Cidar yetersiz (${Number(measWT).toFixed(2)} mm < ${t_min.toFixed(2)} mm)`);
-      if (ovalityStatus === 'fail') fails.push(`Ovallik aşımı (%${Number(measOvality).toFixed(2)} > %2.50)`);
+      if (ovalityStatus === 'fail') fails.push(`Ovallik aşımı (%${Number(measOvality).toFixed(2)} > %${maxAllowOvality.toFixed(2)})`);
       if (rippleStatus === 'fail') fails.push(`Dalgalanma aşımı (${Number(measRipple).toFixed(1)} mm > ${maxAllowRipple.toFixed(1)} mm)`);
       summaryText = `RET SEBEBİ: ${fails.join(', ')}. Boru montaja sevk edilemez.`;
     } else if (angleStatus === 'warn') {
@@ -4684,14 +4896,17 @@ function calculateAsBuiltEvaluation(calc) {
     } else {
       overallStatus = 'pass';
       verdictLabel = 'AS-BUILT KABUL (ONAYLANDI)';
-      summaryText = 'Tüm saha fiziksel ölçümleri ASME B31.8, ASME B31.4 ve teknik şartname tolerans kriterlerini tam olarak sağlamaktadır.';
+      summaryText = `Tüm saha fiziksel ölçümleri ${stdCriteria.badgeName} ve teknik şartname tolerans kriterlerini tam olarak sağlamaktadır.`;
     }
   }
 
   return {
     hasData: hasAnyInput,
+    stdCriteria,
+    millTol,
     targetAngle,
     t_min,
+    t_min_design,
     maxAllowOvality,
     maxAllowRipple,
     measAngle,
@@ -4715,12 +4930,26 @@ function calculateAsBuiltEvaluation(calc) {
 function updateAsBuiltUI(calc) {
   if (!calc) calc = runCalculations();
   const evalRes = calculateAsBuiltEvaluation(calc);
+  const stdCrit = evalRes.stdCriteria;
 
   // Targets in labels
   if (dom.asBuiltTargetAngle) dom.asBuiltTargetAngle.textContent = `${evalRes.targetAngle.toFixed(2)}°`;
   if (dom.asBuiltTargetWT) dom.asBuiltTargetWT.textContent = `${evalRes.t_min.toFixed(2)} mm`;
   if (dom.asBuiltTargetOvality) dom.asBuiltTargetOvality.textContent = `≤ %${evalRes.maxAllowOvality.toFixed(2)}`;
-  if (dom.asBuiltTargetRipple) dom.asBuiltTargetRipple.textContent = `≤ ${evalRes.maxAllowRipple.toFixed(1)} mm (%1.0 D)`;
+  if (dom.asBuiltTargetRipple) dom.asBuiltTargetRipple.textContent = `≤ ${evalRes.maxAllowRipple.toFixed(1)} mm (%${stdCrit.maxAllowRipplePct.toFixed(1)} D)`;
+
+  // Criteria column cells in As-Built table
+  if (dom.asBuiltCritWT) {
+    dom.asBuiltCritWT.innerHTML = stdCrit.enforceMillTolThinning
+      ? `t ≥ max(t<sub>min,des</sub>, t<sub>min,mill</sub>) (${evalRes.t_min.toFixed(2)} mm)`
+      : `t ≥ t<sub>min,des</sub> (${evalRes.t_min.toFixed(2)} mm)`;
+  }
+  if (dom.asBuiltCritOvality) {
+    dom.asBuiltCritOvality.textContent = `≤ %${evalRes.maxAllowOvality.toFixed(2)}`;
+  }
+  if (dom.asBuiltCritRipple) {
+    dom.asBuiltCritRipple.textContent = `h ≤ %${stdCrit.maxAllowRipplePct.toFixed(1)} D`;
+  }
 
   // Angle evaluation row
   if (dom.asBuiltDevAngle) {
@@ -4842,7 +5071,11 @@ function updatePrintableCard(calc) {
   if (dom.prtPipeLength) dom.prtPipeLength.textContent = `${tr(state.length)} m`;
   if (dom.prtPipeOD) dom.prtPipeOD.textContent = `${state.npsLabel} (${tr(state.od, 1)} mm)`;
   if (dom.prtSteelGrade) dom.prtSteelGrade.textContent = `${state.gradeName} (SMYS: ${state.smys} MPa)`;
-  if (dom.prtNomWT) dom.prtNomWT.textContent = `${tr(state.t_nom)} mm (CA: ${tr(state.ca, 1)} mm)`;
+  if (dom.prtNomWT) {
+    dom.prtNomWT.textContent = calc.stdCriteria.enforceMillTolThinning
+      ? `${tr(state.t_nom)} mm (CA: ${tr(state.ca, 1)} mm, API 5L Tol: -${tr(calc.millTol.minusTolMm)} mm)`
+      : `${tr(state.t_nom)} mm (CA: ${tr(state.ca, 1)} mm)`;
+  }
   if (dom.prtPipeWeight) dom.prtPipeWeight.textContent = `${tr(calc.weightPerMeterKg, 1)} kg/m — ${tr(calc.totalPipeWeightTon)} Ton (${Math.round(calc.totalPipeWeightKg).toLocaleString('tr-TR')} kg)`;
   if (dom.prtRiggingLoad) dom.prtRiggingLoad.textContent = `~${tr(calc.riggingSlingLoadTon)} Ton (Min. Sapan SWL: ${tr(calc.minRecommendedSlingSwlTon)} Ton)`;
   if (dom.prtSeam) dom.prtSeam.textContent = `${state.seamType} - ${clockCheck.lblClock}`;
@@ -4852,7 +5085,7 @@ function updatePrintableCard(calc) {
   
   // Section 2
   if (dom.prtRCalculated) dom.prtRCalculated.textContent = `${tr(calc.r_bend_m)} m (${state.radiusMultiplier} D)`;
-  if (dom.prtRmin) dom.prtRmin.textContent = `${tr(calc.r_min_m)} m (${calc.minMult}D, ${calc.isRadiusCompliant ? 'UYGUN' : 'UYGUN DEĞİL'})`;
+  if (dom.prtRmin) dom.prtRmin.textContent = `${tr(calc.r_min_m)} m (${calc.minMult}D ${calc.stdCriteria.shortRef}, ${calc.isRadiusCompliant ? 'UYGUN' : 'UYGUN DEĞİL'})`;
   if (dom.prtThetaTarget) dom.prtThetaTarget.textContent = `${tr(state.targetAngle)}°`;
   if (dom.prtThetaMax) {
     dom.prtThetaMax.textContent = !calc.isTangentFeasible
@@ -4880,12 +5113,20 @@ function updatePrintableCard(calc) {
   }
   
   // Section 3
-  if (dom.prtThinning) dom.prtThinning.textContent = `${tr(calc.delta_t_thin)} mm (%${tr(calc.thinningPercent)})`;
-  if (dom.prtRemainingWT) dom.prtRemainingWT.textContent = `${tr(calc.t_extrados)} mm (t_min: ${tr(calc.t_min_design)} mm) - ${calc.isWallThinningSafe ? 'KABUL' : 'RET'}`;
-  if (dom.prtOvality) dom.prtOvality.textContent = `%${tr(calc.estimatedOvality)} (Maks: %2,5) - ${calc.isOvalityCompliant ? 'KABUL' : 'RET'}`;
+  if (dom.prtThinning) {
+    dom.prtThinning.textContent = calc.stdCriteria.enforceMillTolThinning
+      ? `${tr(calc.delta_t_thin)} mm (%${tr(calc.thinningPercent)}) [API 5L Tol: ≤ ${tr(calc.millTol.minusTolMm)} mm]`
+      : `${tr(calc.delta_t_thin)} mm (%${tr(calc.thinningPercent)})`;
+  }
+  if (dom.prtRemainingWT) {
+    dom.prtRemainingWT.textContent = calc.stdCriteria.enforceMillTolThinning
+      ? `${tr(calc.t_extrados)} mm (t_min+tol: ${tr(calc.t_min_required)} mm) - ${calc.isWallThinningSafe ? 'KABUL' : 'RET'}`
+      : `${tr(calc.t_extrados)} mm (t_min: ${tr(calc.t_min_design)} mm) - ${calc.isWallThinningSafe ? 'KABUL' : 'RET'}`;
+  }
+  if (dom.prtOvality) dom.prtOvality.textContent = `%${tr(calc.estimatedOvality)} (Maks: %${tr(calc.maxAllowOvality, 1)}) - ${calc.isOvalityCompliant ? 'KABUL' : 'RET'}`;
   if (dom.prtMandrel) dom.prtMandrel.textContent = state.useMandrel ? 'İç Hidrolik Mandrel Kullanıldı (KABUL)' : 'Mandrelsiz Büküm Yapıldı';
-  if (dom.prtDeflectionRate) dom.prtDeflectionRate.textContent = `${tr(calc.actualDeflectionRatePerOD)}° / D (Limit: ≤ ${tr(calc.asmeMethod2Limit, 1)}° / D) - ${calc.isMethod2Compliant ? 'KABUL' : 'RET'}`;
-  if (dom.prtRippleStatus) dom.prtRippleStatus.textContent = `~${tr(calc.estimatedRippleMm, 1)} mm (Limit: ≤ ${tr(calc.maxAllowRippleMm, 1)} mm / %1,0 D) - ${calc.isRippleCompliant ? 'KABUL' : 'RET'}`;
+  if (dom.prtDeflectionRate) dom.prtDeflectionRate.textContent = `${tr(calc.actualDeflectionRatePerOD)}° / D (Limit: ≤ ${tr(calc.asmeMethod2Limit, 2)}° / D) - ${calc.isMethod2Compliant ? 'KABUL' : 'RET'}`;
+  if (dom.prtRippleStatus) dom.prtRippleStatus.textContent = `~${tr(calc.estimatedRippleMm, 1)} mm (Limit: ≤ ${tr(calc.maxAllowRippleMm, 1)} mm / %${tr(calc.stdCriteria.maxAllowRipplePct, 1)} D) - ${calc.isRippleCompliant ? 'KABUL' : 'RET'}`;
   if (dom.prtGirthWeldStatus) {
     if (!state.girthWeldInBend) {
       dom.prtGirthWeldStatus.textContent = 'Alın Kaynağı Yok (RT Gerekmez)';
@@ -4973,6 +5214,11 @@ function updatePrintableCard(calc) {
   if (dom.prtAsBuiltDevWT) {
     dom.prtAsBuiltDevWT.textContent = asBuiltEval.wtDev !== null ? `${asBuiltEval.wtDev >= 0 ? '+' : ''}${tr(asBuiltEval.wtDev)} mm` : '—';
   }
+  if (dom.prtAsBuiltCritWT) {
+    dom.prtAsBuiltCritWT.innerHTML = asBuiltEval.stdCriteria.enforceMillTolThinning
+      ? `t<sub>meas</sub> ≥ max(t<sub>min,des</sub>, t<sub>min,mill</sub>)`
+      : `t<sub>meas</sub> ≥ t<sub>min,design</sub>`;
+  }
   if (dom.prtAsBuiltStatusWT) {
     dom.prtAsBuiltStatusWT.innerHTML = asBuiltEval.wtStatus === 'pass'
       ? '<strong style="color:#15803d;">KABUL</strong>'
@@ -4981,11 +5227,17 @@ function updatePrintableCard(calc) {
         : '<strong>BEKLENİYOR</strong>';
   }
 
+  if (dom.prtAsBuiltTargetOvality) {
+    dom.prtAsBuiltTargetOvality.textContent = `Maks: %${tr(asBuiltEval.maxAllowOvality)}`;
+  }
   if (dom.prtAsBuiltMeasOvality) {
     dom.prtAsBuiltMeasOvality.textContent = asBuiltEval.measOvality !== null ? `%${tr(asBuiltEval.measOvality)}` : '—';
   }
   if (dom.prtAsBuiltDevOvality) {
     dom.prtAsBuiltDevOvality.textContent = asBuiltEval.ovalityDev !== null ? `${asBuiltEval.ovalityDev >= 0 ? '+' : ''}%${tr(asBuiltEval.ovalityDev)}` : '—';
+  }
+  if (dom.prtAsBuiltCritOvality) {
+    dom.prtAsBuiltCritOvality.textContent = `${asBuiltEval.stdCriteria.shortRef}: ≤ %${tr(asBuiltEval.maxAllowOvality)}`;
   }
   if (dom.prtAsBuiltStatusOvality) {
     dom.prtAsBuiltStatusOvality.innerHTML = asBuiltEval.ovalityStatus === 'pass'
@@ -4995,12 +5247,15 @@ function updatePrintableCard(calc) {
         : '<strong>BEKLENİYOR</strong>';
   }
 
-  if (dom.prtAsBuiltTargetRipple) dom.prtAsBuiltTargetRipple.textContent = `≤ ${tr(asBuiltEval.maxAllowRipple, 1)} mm (%1,0 D)`;
+  if (dom.prtAsBuiltTargetRipple) dom.prtAsBuiltTargetRipple.textContent = `≤ ${tr(asBuiltEval.maxAllowRipple, 1)} mm (%${tr(asBuiltEval.stdCriteria.maxAllowRipplePct, 1)} D)`;
   if (dom.prtAsBuiltMeasRipple) {
     dom.prtAsBuiltMeasRipple.textContent = asBuiltEval.measRipple !== null ? `${tr(asBuiltEval.measRipple, 1)} mm` : '—';
   }
   if (dom.prtAsBuiltDevRipple) {
     dom.prtAsBuiltDevRipple.textContent = asBuiltEval.rippleDev !== null ? `${asBuiltEval.rippleDev >= 0 ? '+' : ''}${tr(asBuiltEval.rippleDev, 1)} mm` : '—';
+  }
+  if (dom.prtAsBuiltCritRipple) {
+    dom.prtAsBuiltCritRipple.textContent = `${asBuiltEval.stdCriteria.shortRef}: h ≤ %${tr(asBuiltEval.stdCriteria.maxAllowRipplePct, 1)} D`;
   }
   if (dom.prtAsBuiltStatusRipple) {
     dom.prtAsBuiltStatusRipple.innerHTML = asBuiltEval.rippleStatus === 'pass'
@@ -5032,9 +5287,10 @@ function updatePrintableCard(calc) {
    Radius menu: only standard-compliant multipliers are offered
    ========================================================================== */
 
-const RADIUS_CHOICES = [18, 21, 24, 27, 30, 40, 50];
+const RADIUS_CHOICES = [18, 20, 21, 24, 27, 30, 40, 50];
 const RADIUS_LABELS = {
   18: '18 D (Küçük Çap)',
+  20: '20 D (EN 1594 Küçük Çap)',
   21: '21 D',
   24: '24 D',
   27: '27 D',
@@ -5147,7 +5403,7 @@ function restoreState(customData = null) {
   };
   const oneOf = (v, list, fallback) => (list.includes(v) ? v : fallback);
 
-  state.standard = oneOf(data.standard, ['ASME_B31_8', 'ASME_B31_4', 'BOTAS_SPEC', 'CUSTOM_SPEC'], state.standard);
+  state.standard = oneOf(data.standard, ['ASME_B31_8', 'ASME_B31_4', 'EN_1594', 'CSA_Z662', 'BOTAS_SPEC', 'CUSTOM_SPEC'], state.standard);
   state.od = num(data.od, state.od, 50, 2500);
   state.t_nom = num(data.t_nom, state.t_nom, 3, 60);
   state.ca = num(data.ca, state.ca, 0, 10);
